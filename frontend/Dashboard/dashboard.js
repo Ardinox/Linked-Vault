@@ -26,7 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
       loadEmployeeForUpdate(idToUpdate);
     } else {
       alert("No ID provided!");
-      window.location.href = "home.html";
+      window.location.href = "table_view.html";
     }
 
     updateBtn.addEventListener("click", performUpdate);
@@ -262,7 +262,7 @@ async function performUpdate() {
 
     if (insRes.ok) {
       alert("Update Successful!");
-      window.location.href = "home.html";
+      window.location.href = "table_view.html";
     } else {
       const res = await insRes.json();
       showStatus("Update Failed (Insert Step): " + res.message, "error");
