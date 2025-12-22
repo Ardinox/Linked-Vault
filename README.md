@@ -5,9 +5,15 @@
 
 A robust, WEB-based Employee Management System built in C.
 
-### How to Run
+### How to Run Frontend
 
-1. Open your terminal in this folder.
+1. Open `frontend/landing.html` (The entry point).
+
+2. start live server.
+
+### How to Run Backend
+
+1. Open your terminal in `backend` folder.
 
 2. Compile the project:
 
