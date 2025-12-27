@@ -33,6 +33,25 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
+// --- Navbar Integration ---
+fetch("navbar.html")
+  .then((response) => response.text())
+  .then((data) => {
+    let navbar = document.getElementById("navbar-container");
+
+    navbar.outerHTML = data;
+
+    const currentPath = window.location.pathname.split("/").pop();
+
+    const navLinks = document.querySelectorAll(".nav-link");
+
+    navLinks.forEach((link) => {
+      if (link.getAttribute("href") === currentPath) {
+        link.classList.add("active");
+      }
+    });
+  });
+
 // --- HELPER: Status Messages ---
 function showStatus(message, type) {
   const el =
@@ -61,17 +80,20 @@ function renderTable(data) {
   const tbody = document.getElementById("tableBody");
   tbody.innerHTML = "";
 
+  // Handle empty or undefined data
   if (!data || data.length === 0) {
     tbody.innerHTML =
       "<tr><td colspan='7' class='text-center'>No Data Found</td></tr>";
     return;
   }
   if (Array.isArray(data) && data.length === 0) {
-    tbody.innerHTML = "<tr><td colspan='7' class='text-center'>No Data Found</td></tr>";
+    tbody.innerHTML =
+      "<tr><td colspan='7' class='text-center'>No Data Found</td></tr>";
     return;
   }
   if (!Array.isArray(data) && data.id === undefined) {
-    tbody.innerHTML = "<tr><td colspan='7' class='text-center'>No Data Found</td></tr>";
+    tbody.innerHTML =
+      "<tr><td colspan='7' class='text-center'>No Data Found</td></tr>";
     return;
   }
 
@@ -89,7 +111,7 @@ function renderTable(data) {
             <td>${emp.age}</td>
             <td>${emp.department}</td>
             <td>$${emp.salary}</td>
-            <td>
+            <td>          
               <button class="btn btn-danger btn-sm" onclick="deleteEmp(${emp.id})">Delete</button>
               <a class="btn btn-dark btn-sm" href="update_emp.html?id=${emp.id}&pos=${index}">Update</a>
             </td>
@@ -146,7 +168,9 @@ async function addData() {
 // --- 2. LOAD STANDARD TABLE (Fetch /show) ---
 async function loadStandardTable() {
   try {
-    const response = await fetch(`${API_URL}/show`);
+    const response = await fetch(`${API_URL}/show`, {
+      method: "GET",
+    });
     const data = await response.json();
     renderTable(data);
   } catch (error) {
@@ -160,15 +184,14 @@ window.deleteEmp = async function (id) {
   if (!confirm("Delete ID " + id + "?")) return;
 
   try {
-    const response = await fetch(`${API_URL}/delete`, {
-      method: "POST",
+    const response = await fetch(`${API_URL}/delete?id=${id}`, {
+      method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: id }),
     });
 
     if (response.ok) {
       // Refresh the table based on current view
-      if (isRecursiveView) recurssiveReverse();
+      if (isRecursiveView) recursiveReverse();
       else loadStandardTable();
     } else {
       const result = await response.json();
@@ -182,10 +205,9 @@ window.deleteEmp = async function (id) {
 // --- 4. LOAD DATA FOR UPDATE FORM ---
 async function loadEmployeeForUpdate(id) {
   try {
-    const response = await fetch(`${API_URL}/search`, {
-      method: "POST",
+    const response = await fetch(`${API_URL}/search?id=${id}`, {
+      method: "GET",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: parseInt(id) }),
     });
 
     const data = await response.json();
@@ -221,8 +243,14 @@ async function performUpdate() {
   const newDept = document.getElementById("department").value;
   const newSalary = document.getElementById("salary").value;
 
+  // Safety Checks
   if (!newId || !newName) {
     showStatus("ID and Name required.", "error");
+    return;
+  }
+
+  if (!originalId) {
+    showStatus("Original ID missing. Cannot update.", "error");
     return;
   }
 
@@ -230,10 +258,9 @@ async function performUpdate() {
 
   try {
     // Step 1: Delete Old
-    const delRes = await fetch(`${API_URL}/delete`, {
-      method: "POST",
+    const delRes = await fetch(`${API_URL}/delete?id=${originalId}`, {
+      method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: parseInt(originalId) }),
     });
 
     if (!delRes.ok) {
@@ -284,10 +311,9 @@ async function searchData() {
     return;
   }
   try {
-    const response = await fetch(`${API_URL}/search`, {
-      method: "POST",
+    const response = await fetch(`${API_URL}/search?id=${idValue}`, {
+      method: "GET",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: parseInt(idValue) }),
     });
 
     if (response.status === 404) {
@@ -316,7 +342,7 @@ async function linkedReverse() {
 
   try {
     const response = await fetch(`${API_URL}/linkedreverse`, {
-      method: "POST", // Typically POST for actions that change data
+      method: "PUT",
     });
 
     if (!response.ok) {
@@ -330,30 +356,30 @@ async function linkedReverse() {
   }
 }
 
-// --- 8. RECURSIVE REVERSE (Visual Reverse) ---
-async function recurssiveReverse() {
+// --- 8. RECURSIVE REVERSE  ---
+async function recursiveReverse() {
   // 1. Toggle the Global Flag
   isRecursiveView = !isRecursiveView;
 
   // 2. Handle Icons (Toggle Visibility)
   const up = document.getElementById("arrow_up");
   const down = document.getElementById("arrow_down");
-  
+
   // Make sure elements exist before trying to toggle classes
   if (up && down) {
     if (isRecursiveView) {
       // Recursive Mode is ON: Show the icon to go back (Up), hide the start icon (Down)
-      up.classList.remove('d-none'); 
-      down.classList.add('d-none');
+      up.classList.remove("d-none");
+      down.classList.add("d-none");
     } else {
       // Recursive Mode is OFF: Show the Down icon, hide the Up icon
-      up.classList.add('d-none');
-      down.classList.remove('d-none');
+      up.classList.add("d-none");
+      down.classList.remove("d-none");
     }
   }
 
   // 3. DATA FETCHING LOGIC
-  
+
   // CASE A: User turned Recursion OFF (Going back to normal)
   if (!isRecursiveView) {
     loadStandardTable(); // Fetch /show
@@ -362,21 +388,95 @@ async function recurssiveReverse() {
 
   // CASE B: User turned Recursion ON
   try {
-    const response = await fetch(`${API_URL}/recursivereverse`); 
-    
+    const response = await fetch(`${API_URL}/recursivereverse`, {
+      method: "GET",
+    });
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
+
     const data = await response.json();
     renderTable(data); // Render using the countdown S.NO logic
-
   } catch (error) {
     console.error("Error: ", error);
     alert("Something went wrong with the recursive fetch!");
-    
+
     // Fallback: If error, reset flag and view
     isRecursiveView = false;
     loadStandardTable();
+  }
+}
+
+// --- 9. CSV upload ---
+function uploadCsv() {
+  document.getElementById("hiddenFileInput").click();
+}
+
+async function send_file_to_backend() {
+  const fileInput = document.getElementById("hiddenFileInput");
+  const file = fileInput.files[0];
+
+  if (!file) {
+    return;
+  }
+  if (file.type !== "text/csv" && !file.name.endsWith(".csv")) {
+    alert("Please upload a valid .csv file");
+    return;
+  }
+
+  const reader = new FileReader();
+
+  reader.onload = async function (e) {
+    const csvContent = e.target.result;
+    try {
+      const response = await fetch(`${API_URL}/upload_csv`, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: csvContent,
+      });
+
+      const result = await response.json();
+      if (response.ok) {
+        alert(
+          `Upload successfull!\nAdded: ${result.added}\nSkipped: ${result.skipped}`
+        );
+      } else {
+        alert("Upload failed!");
+      }
+    } catch (error) {
+      console.error("Error: ", error);
+      alert("Something went wrong!");
+    }
+    if (isRecursiveView) {
+      recursiveReverse();
+    } else {
+      loadStandardTable();
+    }
+    fileInput.value = "";
+  };
+  reader.readAsText(file);
+}
+
+// --- 10. Table download ---
+function downloadTable() {
+  // Redirect to the backend export route
+  window.location.href = `${API_URL}/download_table`;
+}
+
+// --- 11. Delete Table ---
+async function deleteData() {
+  if (!confirm("Are you sure you want to wipe out entire table?")) return;
+  try {
+    const response = await fetch(`${API_URL}/clear_table`, {
+      method: "DELETE",
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    loadStandardTable();
+  } catch (error) {
+    console.error("Error: ", error);
+    alert("Something went wrong with the recursive fetch!");
   }
 }

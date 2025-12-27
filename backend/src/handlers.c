@@ -1,11 +1,9 @@
 // File_Name handler.c
 // Serves the logic for operations
 
-#include "cJSON.h"
-
 #include "handlers.h"
 #include "employee.h"
-#include "utilis.h"
+#include "utils.h"
 
 // --- 1. Handles insertion (Supports insertion at specific position) ---
 void handle_insertion(struct mg_connection *c, struct mg_http_message *hm)
@@ -30,110 +28,16 @@ void handle_insertion(struct mg_connection *c, struct mg_http_message *hm)
 
   // Extract "data" object
   cJSON *j_data = cJSON_GetObjectItem(json, "data");
-  if (!j_data)
-  {
-    mg_http_reply(c, 400, "...", "{ \"error\": \"Missing 'data' object\" }");
-    cJSON_Delete(json); // Cleanup
-    return;
-  }
 
-  // ------Validations Checks------
-  // Extract Fields
-  cJSON *j_id = cJSON_GetObjectItem(j_data, "id");
-  cJSON *j_name = cJSON_GetObjectItem(j_data, "name");
-  cJSON *j_age = cJSON_GetObjectItem(j_data, "age");
-  cJSON *j_dept = cJSON_GetObjectItem(j_data, "department");
-  cJSON *j_salary = cJSON_GetObjectItem(j_data, "salary");
-
-  // 1. Check Missing Fields
-  if (!j_id || !j_name || !j_age || !j_dept || !j_salary)
+  // validate Inputs
+  const char *error_msg = validate_employee_json(j_data);
+  if (error_msg != NULL)
   {
     mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
-                  "{ \"status\": \"Error\", \"message\": \"All fields are required\" }");
+                  "{ \"status\": \"Error\", \"message\": \"%s\" }", error_msg);
     cJSON_Delete(json);
     return;
   }
-
-  // 2. Check Name Format (Prevent special chars/scripts)
-  if (!isOnlyAlphaSpaces(j_name->valuestring))
-  {
-    mg_http_reply(c, 409, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
-                  "{ \"status\": \"Error\", \"message\": \"Name field should only contain alphabet and spaces!\" }");
-    cJSON_Delete(json);
-    return;
-  }
-
-  // 3. Check Numbers are actually numbers
-  if (!cJSON_IsNumber(j_id) || !cJSON_IsNumber(j_age) || !cJSON_IsNumber(j_salary))
-  {
-    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
-                  "{ \"status\": \"Error\", \"message\": \"ID, Age, and Salary must be numbers\" }");
-    cJSON_Delete(json);
-    return;
-  }
-
-  // 4. CHECK UNIQUE ID
-  int new_id = j_id->valueint;
-  emp *scanner = my_list.head;
-  while (scanner != NULL)
-  {
-    if (scanner->id == new_id)
-    {
-      // ID FOUND! Return Error immediately.
-      mg_http_reply(c, 409, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
-                    "{ \"status\": \"Error\", \"message\": \"Employee ID %d already exists!\" }", new_id);
-      cJSON_Delete(json);
-      return;
-    }
-    scanner = scanner->next;
-  }
-
-  // 5. Check for valid age
-  if (j_age->valueint < 16 || j_age->valueint > 100)
-  {
-    mg_http_reply(c, 409, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
-                  "{ \"status\": \"Error\", \"message\": \"Enter a valid Age!\" }");
-    cJSON_Delete(json);
-    return;
-  }
-
-  // 6. Check Department Format (Prevent special chars/scripts)
-  if (!isOnlyAlphaSpaces(j_dept->valuestring))
-  {
-    mg_http_reply(c, 409, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
-                  "{ \"status\": \"Error\", \"message\": \"Department field should only contain alphabet and spaces!\" }");
-    cJSON_Delete(json);
-    return;
-  }
-
-  // 7. Check for valid salary (salary can't be negative)
-  if (j_salary->valueint < 0)
-  {
-    mg_http_reply(c, 409, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
-                  "{ \"status\": \"Error\", \"message\": \"Enter a Valid Salary!\" }");
-    cJSON_Delete(json);
-    return;
-  }
-
-  // 8. Check for available charector size for Name (Buffer Overflow Prevention)
-  if (strlen(j_name->valuestring) >= 50)
-  {
-    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
-                  "{ \"status\": \"Error\", \"message\": \"Name is too long! Max 49 characters allowed.\" }");
-    cJSON_Delete(json);
-    return;
-  }
-
-  // 9. Check for available character size for Department (Buffer Overflow Prevention)
-  if (strlen(j_dept->valuestring) >= 50)
-  {
-    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
-                  "{ \"status\": \"Error\", \"message\": \"Department is too long! Max 49 characters allowed.\" }");
-    cJSON_Delete(json);
-    return;
-  }
-
-  // --- validation Completed ---
 
   // Create the struct in heap memory
   emp *insert = create_node_from_json(j_data);
@@ -146,7 +50,6 @@ void handle_insertion(struct mg_connection *c, struct mg_http_message *hm)
   }
 
   // Logic: Linked List Insertion
-
   // Case 1: List is Empty
   if (my_list.head == NULL)
   {
@@ -205,7 +108,7 @@ void handle_insertion(struct mg_connection *c, struct mg_http_message *hm)
 }
 
 // --- Handles Display (returns all employees as a JSON Array) ---
-void handle_showall(struct mg_connection *c)
+void handle_showall(struct mg_connection *c, struct mg_http_message *hm)
 {
   cJSON *json_array = cJSON_CreateArray();
   emp *curr = my_list.head;
@@ -240,23 +143,16 @@ void handle_showall(struct mg_connection *c)
 // --- Handles Search by ID (Linear Search: as the data is not sorted according to ID) ---
 void handle_search_by_id(struct mg_connection *c, struct mg_http_message *hm)
 {
-  cJSON *json = cJSON_ParseWithLength(hm->body.buf, hm->body.len);
-  if (!json)
+  char id_str[32];
+  // Extract Id from query string
+  if (mg_http_get_var(&hm->query, "id", id_str, sizeof(id_str)) <= 0)
   {
     mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
-                  "{ \"status\": \"Error\", \"message\": \"Invalid JSON\" }");
+                  "{ \"status\": \"Error\", \"message\": \"Missing 'id' parameter in URL\" }");
     return;
   }
 
-  cJSON *j_id = cJSON_GetObjectItem(json, "id");
-  if (!j_id)
-  {
-    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
-                  "{ \"status\": \"Error\", \"message\": \"Provide id in JSON\" }");
-    cJSON_Delete(json);
-    return;
-  }
-  int target_id = j_id->valueint;
+  int target_id = atoi(id_str);
 
   // Linear Search for the ID
   emp *curr = my_list.head;
@@ -270,7 +166,6 @@ void handle_search_by_id(struct mg_connection *c, struct mg_http_message *hm)
   {
     mg_http_reply(c, 404, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
                   "{\"message\": \"The Id %d Doesn't exist\"}", target_id);
-    cJSON_Delete(json);
     return;
   }
 
@@ -287,39 +182,29 @@ void handle_search_by_id(struct mg_connection *c, struct mg_http_message *hm)
   // Response
   mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "%s", response_str);
 
-  //Cleanup
+  // Cleanup
   free(response_str);
   cJSON_Delete(emp_obj);
-  cJSON_Delete(json);
 }
 
 // --- Handles Deletion (Removes a node by ID and frees its memory) ---
 void handle_delete(struct mg_connection *c, struct mg_http_message *hm)
 {
-  cJSON *json = cJSON_ParseWithLength(hm->body.buf, hm->body.len);
-  if (!json)
+  char id_str[32];
+  // Extract id from query string
+  if (mg_http_get_var(&hm->query, "id", id_str, sizeof(id_str)) <= 0)
   {
     mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
                   "{ \"status\": \"Error\", \"message\": \"Invalid JSON\" }");
     return;
   }
-
-  cJSON *j_id = cJSON_GetObjectItem(json, "id");
-  if (!j_id)
-  {
-    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
-                  "{ \"status\": \"Error\", \"message\": \"Provide id in JSON\" }");
-    cJSON_Delete(json);
-    return;
-  }
-  int target_id = j_id->valueint;
+  int target_id = atoi(id_str);
 
   // Check if list is empty
   if (my_list.head == NULL)
   {
     mg_http_reply(c, 404, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
                   "{ \"status\": \"Error\", \"message\": \"List is Empty\" }");
-    cJSON_Delete(json);
     return;
   }
 
@@ -337,9 +222,6 @@ void handle_delete(struct mg_connection *c, struct mg_http_message *hm)
     // Response
     mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
                   "{ \"status\": \"success\", \"message\": \"Deleted id %d\" }", target_id);
-
-    // Cleanup
-    cJSON_Delete(json);
     return;
   }
 
@@ -355,7 +237,6 @@ void handle_delete(struct mg_connection *c, struct mg_http_message *hm)
   {
     mg_http_reply(c, 404, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
                   "{\"message\": \"ID %d not found\"}", target_id);
-    cJSON_Delete(json);
     return;
   }
 
@@ -370,7 +251,6 @@ void handle_delete(struct mg_connection *c, struct mg_http_message *hm)
   // Response
   mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
                 "{ \"status\": \"success\", \"message\": \"Deleted id %d\" }", target_id);
-  cJSON_Delete(json);
 }
 
 // --- Reverse Linked List ---
@@ -393,19 +273,190 @@ void handle_reverse(struct mg_connection *c, struct mg_http_message *hm)
 }
 
 // --- Handle Recursive Reverse ---
-void handle_recursive_reverse(struct mg_connection *c)
+void handle_recursive_reverse(struct mg_connection *c, struct mg_http_message *hm)
 {
   cJSON *json_array = cJSON_CreateArray();
 
   // Helper function located in utilis.c
   recursive_json_builder(my_list.head, json_array);
 
-  char *responce_str = cJSON_PrintUnformatted(json_array);
+  char *response_str = cJSON_PrintUnformatted(json_array);
 
   // Response
-  mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "%s", responce_str);
+  mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "%s", response_str);
 
   // Cleanup
-  free(responce_str);
+  free(response_str);
   cJSON_Delete(json_array);
+}
+
+// --- Handle CSV Export ---
+void handle_export(struct mg_connection *c, struct mg_http_message *hm)
+{
+  // STEP 1. 'Content-Disposition: attachment' forces the browser to download the file.
+  char *headers =
+      "HTTP/1.1 200 OK\r\n"
+      "Content-Type: text/csv\r\n"
+      "Content-Disposition: attachment; filename=\"linked_vault_data.csv\"\r\n"
+      "Access-Control-Allow-Origin: *\r\n"
+      "Connection: close\r\n"
+      "\r\n";
+
+  // STEP 2. Send Headers First
+  mg_send(c, headers, strlen(headers));
+
+  // STEP 3. Send CSV Column Headers
+  char *csv_header_row = "ID,Name,Age,Department,Salary\n";
+  mg_send(c, csv_header_row, strlen(csv_header_row));
+
+  // 4. Loop and Stream Data
+  emp *curr = my_list.head;
+  char buffer[1024];
+
+  while (curr != NULL)
+  {
+    // Format the current node into a CSV string
+    int line_len = snprintf(buffer, sizeof(buffer), "%d,%s,%d,%s,%d\n", curr->id, curr->name, curr->age, curr->department, curr->salary);
+
+    size_t len_to_send;
+
+    if (line_len < 0)
+    {
+      // Encoding error, skip this line
+      curr = curr->next;
+      continue;
+    }
+    else if ((size_t)line_len >= sizeof(buffer))
+    {
+      // String was truncated.
+      len_to_send = sizeof(buffer) - 1;
+    }
+    else
+    {
+      len_to_send = (size_t)line_len;
+    }
+    // Send this specific line to the client
+    mg_send(c, buffer, len_to_send);
+  }
+  // 5. Signal Mongoose that we are done
+  c->is_draining = 1;
+}
+
+// --- Handle CSV Import ---
+void handle_import(struct mg_connection *c, struct mg_http_message *hm)
+{
+  // 1. Basic Safety Checks
+  if (hm == NULL || hm->body.len == 0 || hm->body.buf == NULL)
+  {
+    mg_http_reply(c, 400, "", "Empty or Invalid Request");
+    return;
+  }
+
+  // 2. Allocate Memory
+  char *csv_content = malloc(hm->body.len + 1);
+  if (!csv_content)
+  {
+    mg_http_reply(c, 500, "", "{\"message\": \"Memory Error\"}");
+    return;
+  }
+
+  // 3. Copy Data and Null Terminate
+  memcpy(csv_content, hm->body.buf, hm->body.len);
+  csv_content[hm->body.len] = '\0';
+
+  // 4. Parse Lines (Safe Method)
+  char *cursor = csv_content;
+  char *line_start = cursor;
+  int count = 0;
+  int skipped = 0;
+
+  while (*cursor != '\0')
+  {
+    // Find the end of the current line (newline or end of string)
+    size_t len = strcspn(line_start, "\n");
+
+    // Stop if we hit a purely empty end
+    if (len == 0 && line_start[0] == '\0')
+      break;
+
+    // Temporarily terminate the line string
+    char original_char = line_start[len];
+    line_start[len] = '\0';
+
+    // Remove carriage return '\r' (common in Windows CSVs)
+    char *cr = strchr(line_start, '\r');
+    if (cr)
+    {
+      *cr = '\0';
+    }
+
+    // Process non-empty lines
+    if (strlen(line_start) > 5)
+    {
+      int id, age, salary;
+      char name[50], dept[50];
+
+      // Parse using corrected order and buffer protection
+      // Note: append_to_list expects (id, name, age, dept, salary)
+      if (sscanf(line_start, "%d,%49[^,],%d,%49[^,],%d",
+                 &id, name, &age, dept, &salary) == 5)
+      {
+        // validation
+        const char *error_msg = validate_core_logic(id, name, age, dept, salary);
+        if (error_msg == NULL)
+        {
+          append_to_list(id, name, age, dept, salary);
+          count++;
+        }
+        else
+        {
+          skipped++;
+        }
+      }
+    }
+
+    // Restore logic for next iteration
+    if (original_char == '\0')
+    {
+      break; // End of file reached
+    }
+    line_start += len + 1; // Skip the newline character
+    cursor = line_start;
+  }
+
+  // 5. Cleanup and Reply
+  free(csv_content);
+
+  mg_http_reply(c, 200,
+                "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
+                "{ \"status\": \"Success\", \"added\": %d, \"skipped\": %d }", count, skipped);
+}
+
+// --- Handle Linkedlist cleanup ---
+void handle_delete_linkedlist(struct mg_connection *c, struct mg_http_message *hm)
+{
+  // Check if list is empty
+  if (my_list.head == NULL)
+  {
+    mg_http_reply(c, 404, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
+                  "{ \"status\": \"Error\", \"message\": \"List is Empty\" }");
+    return;
+  }
+  // Create a current and previous node
+  emp *curr = my_list.head;
+  emp *prev = NULL;
+  // loop runs untill
+  while (curr != NULL)
+  {
+    prev = curr;
+    curr = curr->next;
+    // free up the previous node
+    free(prev);
+  }
+
+  // Set the head and tail pointers to NULL
+  my_list.head = NULL;
+  my_list.tail = NULL;
+  mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
+                "{ \"status\": \"Success\"}");
 }

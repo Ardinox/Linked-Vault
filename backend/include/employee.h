@@ -1,6 +1,10 @@
 #ifndef EMPLOYEE_H
 #define EMPLOYEE_H
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "cJSON.h"
 
 // --- A. DATA STRUCTURES ---

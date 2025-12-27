@@ -23,4 +23,4 @@ $(TARGET): $(OBJ)
 
 clean:
 	@echo Cleaning up...
-	del /Q /S src\*.o vendor\*.o *.exe
+	-del /Q /S src\*.o vendor\*.o *.exe

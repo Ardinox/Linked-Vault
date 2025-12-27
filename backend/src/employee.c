@@ -1,10 +1,6 @@
 // File_Name employee.c
 // Creates the Data
 
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <string.h>
 #include "employee.h"
 
 // Initializing my_list with NULL

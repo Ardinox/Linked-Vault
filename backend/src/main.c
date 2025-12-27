@@ -3,7 +3,7 @@
 
 #include "handlers.h"
 #include "employee.h"
-#include "utilis.h"
+#include "utils.h"
 
 // --- CONSTANTS ---
 // Listening on 0.0.0.0 allows access from external IPs, not just localhost.
@@ -24,46 +24,57 @@ static void fn(struct mg_connection *c, int ev, void *ev_data)
      * We must reply with Access-Control-Allow-* headers, or the browser will block
      * the subsequent POST request.
      */
-    if (hm->method.len == 7 && memcmp(hm->method.buf, "OPTIONS", 7) == 0)
+    if (is_method(hm, "OPTIONS"))
     {
-      mg_http_reply(c, 200,
-                    "Access-Control-Allow-Origin: *\r\n"
-                    "Access-Control-Allow-Methods: POST, GET, OPTIONS\r\n"
-                    "Access-Control-Allow-Headers: Content-Type\r\n",
+      mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\n"
+                            "Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS\r\n"
+                            "Access-Control-Allow-Headers: Content-Type\r\n",
                     "");
       return;
     }
 
     //  --- ROUTING LOGIC ---
-    if (mg_match(hm->uri, mg_str("/insert"), NULL))
+    if (mg_match(hm->uri, mg_str("/insert"), NULL) && is_method(hm, "POST"))
     {
       handle_insertion(c, hm);
     }
-    else if (mg_match(hm->uri, mg_str("/show"), NULL))
+    else if (mg_match(hm->uri, mg_str("/show"), NULL) && is_method(hm, "GET"))
     {
-      handle_showall(c);
+      handle_showall(c, hm);
     }
-    else if (mg_match(hm->uri, mg_str("/search"), NULL))
+    else if (mg_match(hm->uri, mg_str("/search"), NULL) && is_method(hm, "GET"))
     {
       handle_search_by_id(c, hm);
     }
-    else if (mg_match(hm->uri, mg_str("/delete"), NULL))
+    else if (mg_match(hm->uri, mg_str("/delete"), NULL) && is_method(hm, "DELETE"))
     {
       handle_delete(c, hm);
     }
-    else if (mg_match(hm->uri, mg_str("/linkedreverse"), NULL))
+    else if (mg_match(hm->uri, mg_str("/linkedreverse"), NULL) && is_method(hm, "PUT"))
     {
       handle_reverse(c, hm);
     }
-    else if (mg_match(hm->uri, mg_str("/recursivereverse"), NULL))
+    else if (mg_match(hm->uri, mg_str("/recursivereverse"), NULL) && is_method(hm, "GET"))
     {
-      handle_recursive_reverse(c);
+      handle_recursive_reverse(c, hm);
+    }
+    else if (mg_match(hm->uri, mg_str("/upload_csv"), NULL) && is_method(hm, "POST"))
+    {
+      handle_import(c, hm);
+    }
+    else if (mg_match(hm->uri, mg_str("/download_table"), NULL) && is_method(hm, "GET"))
+    {
+      handle_export(c, hm);
+    }
+    else if (mg_match(hm->uri, mg_str("/clear_table"), NULL) && is_method(hm, "DELETE"))
+    {
+      handle_delete_linkedlist(c, hm);
     }
     // Default Catch-All: 404 Not Found
     else
     {
       mg_http_reply(c, 404, "Access-Control-Allow-Origin: *\r\n",
-                    "Use POST /insert, /show, /delete, or /search\n");
+                  "Use POST /insert, GET /show, DELETE /delete, GET /search, PUT /linkedreverse, GET /recursivereverse, POST /upload_csv, GET /download_table, DELETE /clear_table\n");
     }
   }
 }

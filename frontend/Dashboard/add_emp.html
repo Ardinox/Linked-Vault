@@ -8,60 +8,13 @@
     <link
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
       rel="stylesheet"
+      integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
       crossorigin="anonymous"
     />
+    <link rel="stylesheet" href="styles.css" />
   </head>
-  <body
-    style="
-      background-image: repeating-radial-gradient(
-        ellipse,
-        #ffffff,
-        #ffffff 10px,
-        #f0f9ff 10px,
-        #f0f9ff 20px
-      );
-      background-size: 50px 50px;
-    "
-  >
-    <nav
-      class="navbar navbar-expand-lg"
-      style="background-image: linear-gradient(135deg, #2c3e50, #4ca1af)"
-    >
-      <div class="container-fluid">
-        <a class="navbar-brand" href="table_view.html"
-          ><img
-            class="navb-icon"
-            src="../Assets/logo2.png"
-            width="50"
-            height="40"
-        /></a>
-        <button
-          class="navbar-toggler"
-          type="button"
-          data-bs-toggle="collapse"
-          data-bs-target="#navbarSupportedContent"
-        >
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarSupportedContent">
-          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-            <li class="nav-item">
-              <a
-                class="nav-link active"
-                href="add_emp.html"
-                style="color: white"
-                >Add Employee</a
-              >
-            </li>
-            <li>
-              <a class="nav-link" href="table_view.html" style="color: white"
-                >View Table</a
-              >
-            </li>
-          </ul>
-        </div>
-      </div>
-    </nav>
+  <body class="bg-pattern">
+    <div id="navbar-container"></div>
     <h1 class="text-center my-3" style="color: #130e2c">Add New Employee</h1>
 
     <div class="container">
@@ -137,11 +90,11 @@
                 ></div>
 
                 <div
-                  class="container text-center d-flex justify-content-between"
+                  class="d-grid gap-2 d-md-flex mt-4"
                 >
                   <button
                     type="button"
-                    class="btn btn-success btn-lg w-100 me-2"
+                    class="btn btn-success btn-lg flex-fill"
                     style="background-color: #00abb3; border: none"
                     onclick="addData()"
                   >
@@ -150,7 +103,7 @@
 
                   <a
                     href="table_view.html"
-                    class="btn btn-danger btn-lg w-100 ms-2"
+                    class="btn btn-danger btn-lg flex-fill d-flex align-items-center justify-content-center"
                     style="
                       background-color: #ff0707;
                       border: none;
@@ -169,6 +122,10 @@
     </div>
 
     <script src="dashboard.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+      crossorigin="anonymous"
+    ></script>
   </body>
 </html>

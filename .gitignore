@@ -55,3 +55,4 @@ dkms.conf
 # debug information files
 *.dwo
 *.bat
+*.csv
