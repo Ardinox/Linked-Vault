@@ -6,6 +6,16 @@
 // Initializing my_list with NULL
 EmployeeList my_list = {NULL, NULL};
 
+pthread_mutex_t list_lock;
+
+// init function of mutex lock
+void init_list_mutex(){
+  if(pthread_mutex_init(&list_lock, NULL) != 0){
+    printf("Mutex init failed\n");
+    exit(1);
+  }
+}
+
 // --- Create Node from JSON ---
 emp *create_node_from_json(cJSON *json)
 {

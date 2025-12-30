@@ -81,6 +81,8 @@ static void fn(struct mg_connection *c, int ev, void *ev_data)
 
 int main(void)
 {
+  init_list_mutex();
+
   struct mg_mgr mgr;
   mg_mgr_init(&mgr);
 

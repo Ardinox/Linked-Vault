@@ -30,7 +30,8 @@ int is_method(struct mg_http_message *hm, const char *method)
 }
 
 // --- HELPER:  Core Validations logic ---
-const char *validate_core_logic(int id, char *name, int age, char *dept, int salary){
+const char *validate_core_logic(int id, char *name, int age, char *dept, int salary)
+{
 
   // 1. Check Unique Id
   int new_id = id;
@@ -107,7 +108,8 @@ const char *validate_employee_json(cJSON *j_data)
   }
 
   // 2. If Strings are actually strings
-  if(!cJSON_IsString(j_name) || !cJSON_IsString(j_dept)){
+  if (!cJSON_IsString(j_name) || !cJSON_IsString(j_dept))
+  {
     return "Name and Department must be String";
   }
 
@@ -120,10 +122,10 @@ const char *validate_employee_json(cJSON *j_data)
 
   // 4. Core validations
   const char *error_msg = validate_core_logic(j_id->valueint, j_name->valuestring, j_age->valueint, j_dept->valuestring, j_salary->valueint);
-  if(error_msg != NULL){
+  if (error_msg != NULL)
+  {
     return error_msg;
   }
-  
 
   // return 'NULL' if no error found
   return NULL;
@@ -155,18 +157,27 @@ void recursive_json_builder(emp *curr, cJSON *json_array)
 // --- HELPER: To add to the global list efficiently ---
 void append_to_list(int id, char *name, int age, char *dept, int salary)
 {
+  // lock the list
+  pthread_mutex_lock(&list_lock);
+
   emp *new_node = (emp *)malloc(sizeof(emp));
+  if (new_node == NULL)
+  {
+    // unlock the list
+    pthread_mutex_unlock(&list_lock);
+    return;
+  }
 
   // Set data
   new_node->id = id;
 
   strncpy(new_node->name, name, 49);
-  new_node->name[49]='\0';
+  new_node->name[49] = '\0';
 
   new_node->age = age;
 
   strncpy(new_node->department, dept, 49);
-  new_node->department[49]='\0';
+  new_node->department[49] = '\0';
 
   new_node->salary = salary;
   new_node->next = NULL;
@@ -182,4 +193,7 @@ void append_to_list(int id, char *name, int age, char *dept, int salary)
     my_list.tail->next = new_node;
     my_list.tail = new_node;
   }
+
+  // unlock the list
+  pthread_mutex_unlock(&list_lock);
 }

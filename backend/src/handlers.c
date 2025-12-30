@@ -29,22 +29,28 @@ void handle_insertion(struct mg_connection *c, struct mg_http_message *hm)
   // Extract "data" object
   cJSON *j_data = cJSON_GetObjectItem(json, "data");
 
-  // validate Inputs
-  const char *error_msg = validate_employee_json(j_data);
-  if (error_msg != NULL)
-  {
-    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
-                  "{ \"status\": \"Error\", \"message\": \"%s\" }", error_msg);
-    cJSON_Delete(json);
-    return;
-  }
-
   // Create the struct in heap memory
   emp *insert = create_node_from_json(j_data);
   if (insert == NULL)
   {
     mg_http_reply(c, 500, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
                   "{ \"status\": \"Error\", \"message\": \"Server Out of Memory\" }");
+    cJSON_Delete(json);
+    return;
+  }
+
+  // lock using Mutex lock
+  pthread_mutex_lock(&list_lock);
+
+  // validate Inputs
+  const char *error_msg = validate_employee_json(j_data);
+  if (error_msg != NULL)
+  {
+    pthread_mutex_unlock(&list_lock);
+    free(insert);
+
+    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
+                  "{ \"status\": \"Error\", \"message\": \"%s\" }", error_msg);
     cJSON_Delete(json);
     return;
   }
@@ -98,6 +104,9 @@ void handle_insertion(struct mg_connection *c, struct mg_http_message *hm)
     }
   }
 
+  // Unlock after insertion completion
+  pthread_mutex_unlock(&list_lock);
+
   // Sending the json response for successful insertion
   mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
                 "{ \"status\": \"success\", \"message\": \"Inserted at pos %d\", \"id\": %d }",
@@ -111,6 +120,10 @@ void handle_insertion(struct mg_connection *c, struct mg_http_message *hm)
 void handle_showall(struct mg_connection *c, struct mg_http_message *hm)
 {
   cJSON *json_array = cJSON_CreateArray();
+
+  // lock the list
+  pthread_mutex_lock(&list_lock);
+
   emp *curr = my_list.head;
 
   // Traverse the Linked List
@@ -132,6 +145,9 @@ void handle_showall(struct mg_connection *c, struct mg_http_message *hm)
   // Convert JSON object to String
   char *response_str = cJSON_PrintUnformatted(json_array);
 
+  // Unlock the list
+  pthread_mutex_unlock(&list_lock);
+
   // Successful Response with data
   mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "%s", response_str);
 
@@ -151,6 +167,8 @@ void handle_search_by_id(struct mg_connection *c, struct mg_http_message *hm)
                   "{ \"status\": \"Error\", \"message\": \"Missing 'id' parameter in URL\" }");
     return;
   }
+  // lock the list
+  pthread_mutex_lock(&list_lock);
 
   int target_id = atoi(id_str);
 
@@ -164,6 +182,9 @@ void handle_search_by_id(struct mg_connection *c, struct mg_http_message *hm)
   // If curr is NULL, we reached the end without finding the ID
   if (curr == NULL)
   {
+    // unlock the list
+    pthread_mutex_unlock(&list_lock);
+
     mg_http_reply(c, 404, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
                   "{\"message\": \"The Id %d Doesn't exist\"}", target_id);
     return;
@@ -178,6 +199,9 @@ void handle_search_by_id(struct mg_connection *c, struct mg_http_message *hm)
   cJSON_AddNumberToObject(emp_obj, "salary", curr->salary);
 
   char *response_str = cJSON_PrintUnformatted(emp_obj);
+
+  // unlock the list
+  pthread_mutex_unlock(&list_lock);
 
   // Response
   mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "%s", response_str);
@@ -200,9 +224,14 @@ void handle_delete(struct mg_connection *c, struct mg_http_message *hm)
   }
   int target_id = atoi(id_str);
 
+  // lock the list
+  pthread_mutex_lock(&list_lock);
+
   // Check if list is empty
   if (my_list.head == NULL)
   {
+    // unlock the list
+    pthread_mutex_unlock(&list_lock);
     mg_http_reply(c, 404, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
                   "{ \"status\": \"Error\", \"message\": \"List is Empty\" }");
     return;
@@ -216,7 +245,12 @@ void handle_delete(struct mg_connection *c, struct mg_http_message *hm)
   {
     my_list.head = curr->next;
     if (my_list.head == NULL)
+    {
       my_list.tail = NULL;
+    }
+    // unlock the list
+    pthread_mutex_unlock(&list_lock);
+
     free(curr); // Free the memory of the deleted node
 
     // Response
@@ -235,6 +269,8 @@ void handle_delete(struct mg_connection *c, struct mg_http_message *hm)
   // Not Found
   if (curr == NULL)
   {
+    // unlock the list
+    pthread_mutex_unlock(&list_lock);
     mg_http_reply(c, 404, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
                   "{\"message\": \"ID %d not found\"}", target_id);
     return;
@@ -243,7 +279,12 @@ void handle_delete(struct mg_connection *c, struct mg_http_message *hm)
   // Node Found: Unlink it
   prev->next = curr->next;
   if (curr == my_list.tail)
+  {
     my_list.tail = prev;
+  }
+
+  // unlock the list
+  pthread_mutex_unlock(&list_lock);
 
   // Cleanup
   free(curr);
@@ -256,6 +297,9 @@ void handle_delete(struct mg_connection *c, struct mg_http_message *hm)
 // --- Reverse Linked List ---
 void handle_reverse(struct mg_connection *c, struct mg_http_message *hm)
 {
+  // lock the list
+  pthread_mutex_lock(&list_lock);
+
   emp *prev = NULL, *curr = my_list.head, *next = NULL;
   emp *old_head = my_list.head;
   while (curr != NULL)
@@ -268,6 +312,8 @@ void handle_reverse(struct mg_connection *c, struct mg_http_message *hm)
   my_list.head = prev;
   my_list.tail = old_head;
 
+  // unlock the list
+  pthread_mutex_unlock(&list_lock);
   // Response
   mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{\"status\": \"Success\"}");
 }
@@ -277,8 +323,14 @@ void handle_recursive_reverse(struct mg_connection *c, struct mg_http_message *h
 {
   cJSON *json_array = cJSON_CreateArray();
 
+  // lock the list
+  pthread_mutex_lock(&list_lock);
+
   // Helper function located in utilis.c
   recursive_json_builder(my_list.head, json_array);
+
+  // unlock the list
+  pthread_mutex_unlock(&list_lock);
 
   char *response_str = cJSON_PrintUnformatted(json_array);
 
@@ -309,6 +361,9 @@ void handle_export(struct mg_connection *c, struct mg_http_message *hm)
   char *csv_header_row = "ID,Name,Age,Department,Salary\n";
   mg_send(c, csv_header_row, strlen(csv_header_row));
 
+  // lock the list
+  pthread_mutex_lock(&list_lock);
+
   // 4. Loop and Stream Data
   emp *curr = my_list.head;
   char buffer[1024];
@@ -318,13 +373,11 @@ void handle_export(struct mg_connection *c, struct mg_http_message *hm)
     // Format the current node into a CSV string
     int line_len = snprintf(buffer, sizeof(buffer), "%d,%s,%d,%s,%d\n", curr->id, curr->name, curr->age, curr->department, curr->salary);
 
-    size_t len_to_send;
+    size_t len_to_send = 0;
 
     if (line_len < 0)
     {
       // Encoding error, skip this line
-      curr = curr->next;
-      continue;
     }
     else if ((size_t)line_len >= sizeof(buffer))
     {
@@ -335,9 +388,14 @@ void handle_export(struct mg_connection *c, struct mg_http_message *hm)
     {
       len_to_send = (size_t)line_len;
     }
+    
     // Send this specific line to the client
     mg_send(c, buffer, len_to_send);
+    curr = curr->next;
   }
+  // unlock the list
+  pthread_mutex_unlock(&list_lock);
+
   // 5. Signal Mongoose that we are done
   c->is_draining = 1;
 }
@@ -435,9 +493,15 @@ void handle_import(struct mg_connection *c, struct mg_http_message *hm)
 // --- Handle Linkedlist cleanup ---
 void handle_delete_linkedlist(struct mg_connection *c, struct mg_http_message *hm)
 {
+  // lock the list
+  pthread_mutex_lock(&list_lock);
+
   // Check if list is empty
   if (my_list.head == NULL)
   {
+    // unlock the list
+    pthread_mutex_unlock(&list_lock);
+
     mg_http_reply(c, 404, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
                   "{ \"status\": \"Error\", \"message\": \"List is Empty\" }");
     return;
@@ -457,6 +521,10 @@ void handle_delete_linkedlist(struct mg_connection *c, struct mg_http_message *h
   // Set the head and tail pointers to NULL
   my_list.head = NULL;
   my_list.tail = NULL;
+
+  // unlock the list
+  pthread_mutex_unlock(&list_lock);
+
   mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
                 "{ \"status\": \"Success\"}");
 }

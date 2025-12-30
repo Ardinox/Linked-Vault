@@ -2,7 +2,7 @@ CC = gcc
 
 CFLAGS = -Wall -Iinclude -Ivendor -D_CRT_RAND_S -Dfseeko=fseek
 
-LDFLAGS = -lws2_32
+LDFLAGS = -lws2_32 -lpthread
 
 TARGET = LinkedVault.exe
 
