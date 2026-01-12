@@ -1,14 +1,14 @@
 const params = new URLSearchParams(window.location.search);
-const TABLE_ID = params.get('table_id');
+const TABLE_ID = params.get("table_id");
 
 // 2. PROTECTION: Kick out if missing
 if (!TABLE_ID) {
-    alert("Access Denied: No Table ID provided.");
-    // Go up one level (..) to get out of /Dashboard and back to index.html
-    window.location.href = '../index.html'; 
-    
-    // Throw an error to stop the rest of this script from running
-    throw new Error("Halted: No Table ID"); 
+  alert("Access Denied: No Table ID provided.");
+  // Go up one level (..) to get out of /Dashboard and back to index.html
+  window.location.href = "../index.html";
+
+  // Throw an error to stop the rest of this script from running
+  throw new Error("Halted: No Table ID");
 }
 
 const API_URL = "http://localhost:8000";
@@ -38,12 +38,14 @@ document.addEventListener("DOMContentLoaded", () => {
   // If we are on Add Page
   const addBtn = document.getElementById("addBtn");
   if (addBtn) {
-    addBtn.addEventListener("click", addData);
+    addBtn.type = "button";
+    addBtn.addEventListener("click", (e) => addData(e));
   }
 
   // If we are on Update Page
   const updateBtn = document.getElementById("updateBtn");
   if (updateBtn) {
+    updateBtn.type = "button";
     const urlParams = new URLSearchParams(window.location.search);
     const idToUpdate = urlParams.get("id");
 
@@ -51,10 +53,10 @@ document.addEventListener("DOMContentLoaded", () => {
       loadEmployeeForUpdate(idToUpdate);
     } else {
       alert("No ID provided!");
-      window.location.href = "table_view.html";
+      window.location.href = `table_view.html?table_id=${TABLE_ID}`;
     }
 
-    updateBtn.addEventListener("click", performUpdate);
+    updateBtn.addEventListener("click", (e) => performUpdate(e));
   }
 });
 
@@ -72,11 +74,14 @@ fetch("navbar.html")
 
     navLinks.forEach((link) => {
       const originalHref = link.getAttribute("href");
-      if(originalHref && originalHref !== "#") {
-         const separator = originalHref.includes('?') ? '&' : '?';
-         link.setAttribute("href", `${originalHref}${separator}table_id=${TABLE_ID}`);
+      if (originalHref && originalHref !== "#") {
+        const separator = originalHref.includes("?") ? "&" : "?";
+        link.setAttribute(
+          "href",
+          `${originalHref}${separator}table_id=${TABLE_ID}`
+        );
       }
-      
+
       if (originalHref === currentPath) {
         link.classList.add("active");
       }
@@ -152,7 +157,11 @@ function renderTable(data) {
 }
 
 // --- 1. ADD DATA ---
-async function addData() {
+async function addData(e) {
+  if (e) e.preventDefault();
+
+  const addBtn = document.getElementById("addBtn");
+
   const pos = document.getElementById("pos").value;
   const name = document.getElementById("name").value;
   const id = document.getElementById("id").value;
@@ -163,6 +172,11 @@ async function addData() {
   if (!id || !name || !age || !dept || !salary) {
     showStatus("All fields must be filled.", "error");
     return;
+  }
+
+  if (addBtn) {
+    addBtn.disabled = true;
+    addBtn.innerText = "Adding...";
   }
 
   const payload = {
@@ -194,6 +208,11 @@ async function addData() {
   } catch (error) {
     console.error("Connection Error:", error);
     showStatus("Failed to connect to server.", "error");
+  } finally {
+    if (addBtn) {
+      addBtn.disabled = false;
+      addBtn.innerText = "Add";
+    }
   }
 }
 
@@ -203,7 +222,7 @@ async function loadStandardTable() {
     const response = await fetch(`${API_URL}/show?table_id=${TABLE_ID}`, {
       method: "GET",
     });
-    if(!response.ok){
+    if (!response.ok) {
       const errData = await response.json();
       console.error("Server Error:", errData);
       alert(`Failed to load table: ${errData.message || response.statusText}`);
@@ -222,10 +241,13 @@ window.deleteEmp = async function (id) {
   if (!confirm("Delete ID " + id + "?")) return;
 
   try {
-    const response = await fetch(`${API_URL}/delete?id=${id}&table_id=${TABLE_ID}`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-    });
+    const response = await fetch(
+      `${API_URL}/delete?id=${id}&table_id=${TABLE_ID}`,
+      {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      }
+    );
 
     if (response.ok) {
       // Refresh the table based on current view
@@ -243,10 +265,18 @@ window.deleteEmp = async function (id) {
 // --- 4. LOAD DATA FOR UPDATE FORM ---
 async function loadEmployeeForUpdate(id) {
   try {
-    const response = await fetch(`${API_URL}/search?id=${id}&table_id=${TABLE_ID}`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-    });
+    const response = await fetch(
+      `${API_URL}/search?id=${id}&table_id=${TABLE_ID}`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+    if (response.status === 404) {
+      alert("Record not found. Returning to table view.");
+      window.location.replace(`table_view.html?table_id=${TABLE_ID}`);
+      return;
+    }
 
     const data = await response.json();
 
@@ -272,7 +302,15 @@ async function loadEmployeeForUpdate(id) {
 }
 
 // --- 5. PERFORM UPDATE (Delete Old -> Insert New) ---
-async function performUpdate() {
+async function performUpdate(e) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  const updateBtn = document.getElementById("updateBtn");
+  let isRedirecting = false;
+
   const originalId = document.getElementById("originalId").value;
   const newPos = document.getElementById("pos").value;
   const newId = document.getElementById("id").value;
@@ -294,16 +332,28 @@ async function performUpdate() {
 
   if (!confirm("Overwrite this employee record?")) return;
 
+  if (updateBtn) {
+    updateBtn.disabled = true;
+    updateBtn.innerText = "Updating...";
+  }
+
   try {
     // Step 1: Delete Old
-    const delRes = await fetch(`${API_URL}/delete?id=${originalId}&table_id=${TABLE_ID}`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-    });
+    const delRes = await fetch(
+      `${API_URL}/delete?id=${originalId}&table_id=${TABLE_ID}`,
+      {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      }
+    );
 
     if (!delRes.ok) {
       const err = await delRes.json();
       showStatus("Update Failed (Delete Step): " + err.message, "error");
+      if (updateBtn) {
+        updateBtn.disabled = false;
+        updateBtn.innerText = "Update";
+      }
       return;
     }
 
@@ -327,8 +377,9 @@ async function performUpdate() {
     });
 
     if (insRes.ok) {
-      alert("Update Successful!");
-      window.location.href = "table_view.html";
+      isRedirecting = true;
+      showStatus("Update Successful!");
+      window.location.replace(`table_view.html?table_id=${TABLE_ID}`);
     } else {
       const res = await insRes.json();
       showStatus("Update Failed (Insert Step): " + res.message, "error");
@@ -336,6 +387,11 @@ async function performUpdate() {
   } catch (error) {
     console.error("Update Error:", error);
     showStatus("Network Error.", "error");
+  } finally {
+    if (!isRedirecting && updateBtn) {
+      updateBtn.disabled = false;
+      updateBtn.innerHTML = "Update";
+    }
   }
 }
 
@@ -350,10 +406,13 @@ async function searchData() {
     return;
   }
   try {
-    const response = await fetch(`${API_URL}/search?id=${idValue}&table_id=${TABLE_ID}`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-    });
+    const response = await fetch(
+      `${API_URL}/search?id=${idValue}&table_id=${TABLE_ID}`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      }
+    );
 
     if (response.status === 404) {
       tbody.innerHTML =
@@ -380,9 +439,12 @@ async function linkedReverse() {
   isRecursiveView = false; // Reset flag, because this physically changes the list
 
   try {
-    const response = await fetch(`${API_URL}/linkedreverse?table_id=${TABLE_ID}`, {
-      method: "PUT",
-    });
+    const response = await fetch(
+      `${API_URL}/linkedreverse?table_id=${TABLE_ID}`,
+      {
+        method: "PUT",
+      }
+    );
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -427,9 +489,12 @@ async function recursiveReverse() {
 
   // CASE B: User turned Recursion ON
   try {
-    const response = await fetch(`${API_URL}/recursivereverse?table_id=${TABLE_ID}`, {
-      method: "GET",
-    });
+    const response = await fetch(
+      `${API_URL}/recursivereverse?table_id=${TABLE_ID}`,
+      {
+        method: "GET",
+      }
+    );
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -469,11 +534,14 @@ async function send_file_to_backend() {
   reader.onload = async function (e) {
     const csvContent = e.target.result;
     try {
-      const response = await fetch(`${API_URL}/upload_csv?table_id=${TABLE_ID}`, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain" },
-        body: csvContent,
-      });
+      const response = await fetch(
+        `${API_URL}/upload_csv?table_id=${TABLE_ID}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "text/plain" },
+          body: csvContent,
+        }
+      );
 
       const result = await response.json();
       if (response.ok) {
@@ -507,9 +575,12 @@ function downloadTable() {
 async function deleteData() {
   if (!confirm("Are you sure you want to wipe out entire table?")) return;
   try {
-    const response = await fetch(`${API_URL}/clear_table?table_id=${TABLE_ID}`, {
-      method: "DELETE",
-    });
+    const response = await fetch(
+      `${API_URL}/clear_table?table_id=${TABLE_ID}`,
+      {
+        method: "DELETE",
+      }
+    );
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -523,53 +594,50 @@ async function deleteData() {
 // ==========================================
 // KEYBOARD SHORTCUTS (Enter & Escape)
 // ==========================================
-document.addEventListener("keydown", function(event) {
-    
-    // --- HANDLE "ENTER" KEY ---
-    if (event.key === "Enter") {
-        
-        // 1. Search Logic (Table View)
-        // Only search if the user is currently typing in the Search Box
-        const searchInput = document.getElementById("searchId");
-        if (searchInput && document.activeElement === searchInput) {
-            event.preventDefault(); // Stop default form submit behavior
-            searchData(); 
-            return;
-        }
-
-        // 2. Add Logic (Add Page)
-        // Tries to find the button. Ensure your HTML button has id="addBtn"
-        const addBtn = document.getElementById("addBtn");
-        if (addBtn) {
-            event.preventDefault();
-            addBtn.click(); // Trigger the click
-            return;
-        }
-
-        // 3. Update Logic (Update Page)
-        const updateBtn = document.getElementById("updateBtn");
-        if (updateBtn) {
-            event.preventDefault();
-            updateBtn.click(); // Trigger the click
-            return;
-        }
+document.addEventListener("keydown", function (event) {
+  // --- HANDLE "ENTER" KEY ---
+  if (event.key === "Enter") {
+    // 1. Search Logic (Table View)
+    // Only search if the user is currently typing in the Search Box
+    const searchInput = document.getElementById("searchId");
+    if (searchInput && document.activeElement === searchInput) {
+      event.preventDefault(); // Stop default form submit behavior
+      searchData();
+      return;
     }
 
-    // --- HANDLE "ESCAPE" KEY ---
-    if (event.key === "Escape") {
-        
-        // 1. Close Button (Add Page)
-        const closeBtn = document.getElementById("closeBtn");
-        if (closeBtn) {
-            closeBtn.click(); // Triggers the link navigation
-            return;
-        }
-
-        // 2. Close Button (Update Page)
-        const closeUpdateBtn = document.getElementById("closeUpdateBtn");
-        if (closeUpdateBtn) {
-            closeUpdateBtn.click(); // Triggers the link navigation
-            return;
-        }
+    // 2. Add Logic (Add Page)
+    // Tries to find the button. Ensure your HTML button has id="addBtn"
+    const addBtn = document.getElementById("addBtn");
+    if (addBtn) {
+      event.preventDefault();
+      addBtn.click(); // Trigger the click
+      return;
     }
+
+    // 3. Update Logic (Update Page)
+    const updateBtn = document.getElementById("updateBtn");
+    if (updateBtn) {
+      event.preventDefault();
+      updateBtn.click(); // Trigger the click
+      return;
+    }
+  }
+
+  // --- HANDLE "ESCAPE" KEY ---
+  if (event.key === "Escape") {
+    // 1. Close Button (Add Page)
+    const closeBtn = document.getElementById("closeBtn");
+    if (closeBtn) {
+      closeBtn.click(); // Triggers the link navigation
+      return;
+    }
+
+    // 2. Close Button (Update Page)
+    const closeUpdateBtn = document.getElementById("closeUpdateBtn");
+    if (closeUpdateBtn) {
+      closeUpdateBtn.click(); // Triggers the link navigation
+      return;
+    }
+  }
 });
