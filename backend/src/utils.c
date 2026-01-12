@@ -30,12 +30,12 @@ int is_method(struct mg_http_message *hm, const char *method)
 }
 
 // --- HELPER:  Core Validations logic ---
-const char *validate_core_logic(int id, char *name, int age, char *dept, int salary)
+const char *validate_core_logic(Table *t, int id, char *name, int age, char *dept, int salary)
 {
 
-  // 1. Check Unique Id
+  // Check Unique Id
   int new_id = id;
-  emp *scanner = my_list.head;
+  emp *scanner = t->employeelist.head;
   while (scanner != NULL)
   {
     if (scanner->id == new_id)
@@ -87,7 +87,7 @@ const char *validate_core_logic(int id, char *name, int age, char *dept, int sal
 }
 
 // --- HELPER: Validations for new insertions using json ---
-const char *validate_employee_json(cJSON *j_data)
+const char *validate_employee_json(cJSON *j_data, Table *t)
 {
   if (!j_data)
   {
@@ -121,7 +121,7 @@ const char *validate_employee_json(cJSON *j_data)
   }
 
   // 4. Core validations
-  const char *error_msg = validate_core_logic(j_id->valueint, j_name->valuestring, j_age->valueint, j_dept->valuestring, j_salary->valueint);
+  const char *error_msg = validate_core_logic(t, j_id->valueint, j_name->valuestring, j_age->valueint, j_dept->valuestring, j_salary->valueint);
   if (error_msg != NULL)
   {
     return error_msg;
@@ -139,10 +139,10 @@ void recursive_json_builder(emp *curr, cJSON *json_array)
     return;
   }
 
-  // STEP 1. RECURSIVE CALL FIRST (Go to the end)
+  // 1. RECURSIVE CALL FIRST (Go to the end)
   recursive_json_builder(curr->next, json_array);
 
-  // STEP 2. ADD TO JSON ON THE WAY BACK (Back-Tracking)
+  // 2. ADD TO JSON ON THE WAY BACK (Back-Tracking)
   cJSON *emp_obj = cJSON_CreateObject();
   cJSON_AddNumberToObject(emp_obj, "id", curr->id);
   cJSON_AddStringToObject(emp_obj, "name", curr->name);
@@ -154,17 +154,14 @@ void recursive_json_builder(emp *curr, cJSON *json_array)
   cJSON_AddItemToArray(json_array, emp_obj);
 }
 
-// --- HELPER: To add to the global list efficiently ---
-void append_to_list(int id, char *name, int age, char *dept, int salary)
+// --- HELPER: To add to the specific list ---
+void append_to_list(Table *t, int id, char *name, int age, char *dept, int salary)
 {
-  // lock the list
-  pthread_mutex_lock(&list_lock);
+  if(t == NULL) return;
 
-  emp *new_node = (emp *)malloc(sizeof(emp));
+  emp *new_node = (emp *)calloc(1, sizeof(emp));
   if (new_node == NULL)
   {
-    // unlock the list
-    pthread_mutex_unlock(&list_lock);
     return;
   }
 
@@ -183,17 +180,14 @@ void append_to_list(int id, char *name, int age, char *dept, int salary)
   new_node->next = NULL;
 
   // Linking
-  if (my_list.head == NULL)
+  if (t->employeelist.head == NULL)
   {
-    my_list.head = new_node;
-    my_list.tail = new_node;
+    t->employeelist.head = new_node;
+    t->employeelist.tail = new_node;
   }
   else
   {
-    my_list.tail->next = new_node;
-    my_list.tail = new_node;
+    t->employeelist.tail->next = new_node;
+    t->employeelist.tail = new_node;
   }
-
-  // unlock the list
-  pthread_mutex_unlock(&list_lock);
 }

@@ -8,7 +8,10 @@
 #include "mongoose.h"
 #include "cJSON.h"
 
-// --- DECLARATION OF SERVER FUNCTIONS ---
+// --- DECLARATION OF TBLE FUNCTION ---
+void handle_get_tables(struct mg_connection *c, struct mg_http_message *hm);
+
+// --- DECLARATION FOR CORE SERVER FUNCTIONS ---
 
 // --- 1. Insertion ---
 void handle_insertion(struct mg_connection *c, struct mg_http_message *hm);

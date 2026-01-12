@@ -1,3 +1,16 @@
+const params = new URLSearchParams(window.location.search);
+const TABLE_ID = params.get('table_id');
+
+// 2. PROTECTION: Kick out if missing
+if (!TABLE_ID) {
+    alert("Access Denied: No Table ID provided.");
+    // Go up one level (..) to get out of /Dashboard and back to index.html
+    window.location.href = '../index.html'; 
+    
+    // Throw an error to stop the rest of this script from running
+    throw new Error("Halted: No Table ID"); 
+}
+
 const API_URL = "http://localhost:8000";
 
 // --- GLOBAL STATE ---
@@ -5,18 +18,30 @@ let isRecursiveView = false;
 
 // --- GLOBAL EVENT LISTENER (The Router) ---
 document.addEventListener("DOMContentLoaded", () => {
-  // 1. If we are on Home Page (Table exists)
+  // "Close" button on Add Page
+  const closeBtn = document.getElementById("closeBtn");
+  if (closeBtn) {
+    closeBtn.setAttribute("href", `table_view.html?table_id=${TABLE_ID}`);
+  }
+
+  // "Close" button on Update Page
+  const closeUpdateBtn = document.getElementById("closeUpdateBtn");
+  if (closeUpdateBtn) {
+    closeUpdateBtn.setAttribute("href", `table_view.html?table_id=${TABLE_ID}`);
+  }
+
+  // If we are on Home Page (Table exists)
   if (document.getElementById("tableBody")) {
     loadStandardTable();
   }
 
-  // 2. If we are on Add Page
+  // If we are on Add Page
   const addBtn = document.getElementById("addBtn");
   if (addBtn) {
     addBtn.addEventListener("click", addData);
   }
 
-  // 3. If we are on Update Page
+  // If we are on Update Page
   const updateBtn = document.getElementById("updateBtn");
   if (updateBtn) {
     const urlParams = new URLSearchParams(window.location.search);
@@ -46,7 +71,13 @@ fetch("navbar.html")
     const navLinks = document.querySelectorAll(".nav-link");
 
     navLinks.forEach((link) => {
-      if (link.getAttribute("href") === currentPath) {
+      const originalHref = link.getAttribute("href");
+      if(originalHref && originalHref !== "#") {
+         const separator = originalHref.includes('?') ? '&' : '?';
+         link.setAttribute("href", `${originalHref}${separator}table_id=${TABLE_ID}`);
+      }
+      
+      if (originalHref === currentPath) {
         link.classList.add("active");
       }
     });
@@ -113,7 +144,7 @@ function renderTable(data) {
             <td>$${emp.salary}</td>
             <td>          
               <button class="btn btn-danger btn-sm" onclick="deleteEmp(${emp.id})">Delete</button>
-              <a class="btn btn-dark btn-sm" href="update_emp.html?id=${emp.id}&pos=${index}">Update</a>
+              <a class="btn btn-dark btn-sm" href="update_emp.html?id=${emp.id}&pos=${index}&table_id=${TABLE_ID}">Update</a>
             </td>
           </tr>`;
     tbody.innerHTML += row;
@@ -135,6 +166,7 @@ async function addData() {
   }
 
   const payload = {
+    table_id: TABLE_ID,
     position: parseInt(pos) || -1,
     data: {
       id: parseInt(id),
@@ -168,9 +200,15 @@ async function addData() {
 // --- 2. LOAD STANDARD TABLE (Fetch /show) ---
 async function loadStandardTable() {
   try {
-    const response = await fetch(`${API_URL}/show`, {
+    const response = await fetch(`${API_URL}/show?table_id=${TABLE_ID}`, {
       method: "GET",
     });
+    if(!response.ok){
+      const errData = await response.json();
+      console.error("Server Error:", errData);
+      alert(`Failed to load table: ${errData.message || response.statusText}`);
+      return;
+    }
     const data = await response.json();
     renderTable(data);
   } catch (error) {
@@ -184,7 +222,7 @@ window.deleteEmp = async function (id) {
   if (!confirm("Delete ID " + id + "?")) return;
 
   try {
-    const response = await fetch(`${API_URL}/delete?id=${id}`, {
+    const response = await fetch(`${API_URL}/delete?id=${id}&table_id=${TABLE_ID}`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
     });
@@ -205,7 +243,7 @@ window.deleteEmp = async function (id) {
 // --- 4. LOAD DATA FOR UPDATE FORM ---
 async function loadEmployeeForUpdate(id) {
   try {
-    const response = await fetch(`${API_URL}/search?id=${id}`, {
+    const response = await fetch(`${API_URL}/search?id=${id}&table_id=${TABLE_ID}`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     });
@@ -258,7 +296,7 @@ async function performUpdate() {
 
   try {
     // Step 1: Delete Old
-    const delRes = await fetch(`${API_URL}/delete?id=${originalId}`, {
+    const delRes = await fetch(`${API_URL}/delete?id=${originalId}&table_id=${TABLE_ID}`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
     });
@@ -271,6 +309,7 @@ async function performUpdate() {
 
     // Step 2: Insert New
     const payload = {
+      table_id: TABLE_ID,
       position: parseInt(newPos),
       data: {
         id: parseInt(newId),
@@ -311,7 +350,7 @@ async function searchData() {
     return;
   }
   try {
-    const response = await fetch(`${API_URL}/search?id=${idValue}`, {
+    const response = await fetch(`${API_URL}/search?id=${idValue}&table_id=${TABLE_ID}`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     });
@@ -341,7 +380,7 @@ async function linkedReverse() {
   isRecursiveView = false; // Reset flag, because this physically changes the list
 
   try {
-    const response = await fetch(`${API_URL}/linkedreverse`, {
+    const response = await fetch(`${API_URL}/linkedreverse?table_id=${TABLE_ID}`, {
       method: "PUT",
     });
 
@@ -388,7 +427,7 @@ async function recursiveReverse() {
 
   // CASE B: User turned Recursion ON
   try {
-    const response = await fetch(`${API_URL}/recursivereverse`, {
+    const response = await fetch(`${API_URL}/recursivereverse?table_id=${TABLE_ID}`, {
       method: "GET",
     });
 
@@ -430,7 +469,7 @@ async function send_file_to_backend() {
   reader.onload = async function (e) {
     const csvContent = e.target.result;
     try {
-      const response = await fetch(`${API_URL}/upload_csv`, {
+      const response = await fetch(`${API_URL}/upload_csv?table_id=${TABLE_ID}`, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
         body: csvContent,
@@ -461,14 +500,14 @@ async function send_file_to_backend() {
 // --- 10. Table download ---
 function downloadTable() {
   // Redirect to the backend export route
-  window.location.href = `${API_URL}/download_table`;
+  window.location.href = `${API_URL}/download_table?table_id=${TABLE_ID}`;
 }
 
 // --- 11. Delete Table ---
 async function deleteData() {
   if (!confirm("Are you sure you want to wipe out entire table?")) return;
   try {
-    const response = await fetch(`${API_URL}/clear_table`, {
+    const response = await fetch(`${API_URL}/clear_table?table_id=${TABLE_ID}`, {
       method: "DELETE",
     });
     if (!response.ok) {
@@ -480,3 +519,57 @@ async function deleteData() {
     alert("Something went wrong with the recursive fetch!");
   }
 }
+
+// ==========================================
+// KEYBOARD SHORTCUTS (Enter & Escape)
+// ==========================================
+document.addEventListener("keydown", function(event) {
+    
+    // --- HANDLE "ENTER" KEY ---
+    if (event.key === "Enter") {
+        
+        // 1. Search Logic (Table View)
+        // Only search if the user is currently typing in the Search Box
+        const searchInput = document.getElementById("searchId");
+        if (searchInput && document.activeElement === searchInput) {
+            event.preventDefault(); // Stop default form submit behavior
+            searchData(); 
+            return;
+        }
+
+        // 2. Add Logic (Add Page)
+        // Tries to find the button. Ensure your HTML button has id="addBtn"
+        const addBtn = document.getElementById("addBtn");
+        if (addBtn) {
+            event.preventDefault();
+            addBtn.click(); // Trigger the click
+            return;
+        }
+
+        // 3. Update Logic (Update Page)
+        const updateBtn = document.getElementById("updateBtn");
+        if (updateBtn) {
+            event.preventDefault();
+            updateBtn.click(); // Trigger the click
+            return;
+        }
+    }
+
+    // --- HANDLE "ESCAPE" KEY ---
+    if (event.key === "Escape") {
+        
+        // 1. Close Button (Add Page)
+        const closeBtn = document.getElementById("closeBtn");
+        if (closeBtn) {
+            closeBtn.click(); // Triggers the link navigation
+            return;
+        }
+
+        // 2. Close Button (Update Page)
+        const closeUpdateBtn = document.getElementById("closeUpdateBtn");
+        if (closeUpdateBtn) {
+            closeUpdateBtn.click(); // Triggers the link navigation
+            return;
+        }
+    }
+});

@@ -6,6 +6,7 @@
 *.ko
 *.obj
 *.elf
+*.bin
 
 # Linker output
 *.ilk
@@ -56,3 +57,5 @@ dkms.conf
 *.dwo
 *.bat
 *.csv
+
+!sample.csv
