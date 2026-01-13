@@ -8,7 +8,9 @@
 
 #include "cJSON.h"
 
-// --- A. DATA STRUCTURES ---
+// --- DATA STRUCTURES ---
+
+// 1. Linked List Node (For RAM)
 typedef struct employee
 {
   int id;
@@ -19,21 +21,27 @@ typedef struct employee
   struct employee *next;
 } emp;
 
+// 2. Serialization Struct (For Disk - No Pointers!)
+// Fixed: Removed the "employee" tag here to prevent duplicate definition error
+typedef struct 
+{
+  int id;
+  int age;
+  int salary;
+  char name[50];
+  char department[50];
+} EmployeeRecord;
+
+// 3. The List Wrapper
 typedef struct
 {
   emp *head;
   emp *tail;
 } EmployeeList;
 
-// Global list so data persists between requests
-extern EmployeeList my_list;
-
-// Add the Mutex 
-extern pthread_mutex_t list_lock;
-
-void init_list_mutex();
-
-// Delaration of node creation function
+// --- FUNCTION DECLARATIONS ---
+void init_employee_list(EmployeeList *list);
+// Creates a node from JSON data
 emp *create_node_from_json(cJSON *json);
 
 #endif

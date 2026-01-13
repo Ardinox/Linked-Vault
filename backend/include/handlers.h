@@ -8,7 +8,10 @@
 #include "mongoose.h"
 #include "cJSON.h"
 
-// --- DECLARATION OF SERVER FUNCTIONS ---
+// --- DECLARATION OF TBLE FUNCTION ---
+void handle_get_tables(struct mg_connection *c, struct mg_http_message *hm);
+
+// --- DECLARATION FOR CORE SERVER FUNCTIONS ---
 
 // --- 1. Insertion ---
 void handle_insertion(struct mg_connection *c, struct mg_http_message *hm);
@@ -27,6 +30,9 @@ void handle_reverse(struct mg_connection *c, struct mg_http_message *hm);
 
 // --- 6. Recursive Reverse ---
 void handle_recursive_reverse(struct mg_connection *c, struct mg_http_message *hm);
+
+// --- Handle Update ---
+void handle_update(struct mg_connection *c, struct mg_http_message *hm);
 
 // --- 7. CSV Import ---
 void handle_import(struct mg_connection *c, struct mg_http_message *hm);

@@ -34,7 +34,11 @@ static void fn(struct mg_connection *c, int ev, void *ev_data)
     }
 
     //  --- ROUTING LOGIC ---
-    if (mg_match(hm->uri, mg_str("/insert"), NULL) && is_method(hm, "POST"))
+    if (mg_match(hm->uri, mg_str("/get_table"), NULL) && is_method(hm, "GET"))
+    {
+      handle_get_tables(c, hm);
+    }
+    else if (mg_match(hm->uri, mg_str("/insert"), NULL) && is_method(hm, "POST"))
     {
       handle_insertion(c, hm);
     }
@@ -58,6 +62,10 @@ static void fn(struct mg_connection *c, int ev, void *ev_data)
     {
       handle_recursive_reverse(c, hm);
     }
+    else if (mg_match(hm->uri, mg_str("/update"), NULL) && is_method(hm, "PUT"))
+    {
+      handle_update(c, hm);
+    }
     else if (mg_match(hm->uri, mg_str("/upload_csv"), NULL) && is_method(hm, "POST"))
     {
       handle_import(c, hm);
@@ -74,15 +82,13 @@ static void fn(struct mg_connection *c, int ev, void *ev_data)
     else
     {
       mg_http_reply(c, 404, "Access-Control-Allow-Origin: *\r\n",
-                  "Use POST /insert, GET /show, DELETE /delete, GET /search, PUT /linkedreverse, GET /recursivereverse, POST /upload_csv, GET /download_table, DELETE /clear_table\n");
+                  "Endpoint not found\n");
     }
   }
 }
 
 int main(void)
 {
-  init_list_mutex();
-
   struct mg_mgr mgr;
   mg_mgr_init(&mgr);
 

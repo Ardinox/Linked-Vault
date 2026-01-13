@@ -4,6 +4,33 @@
 #include "handlers.h"
 #include "employee.h"
 #include "utils.h"
+#include "table.h"
+#include "storage.h"
+
+void handle_get_tables(struct mg_connection *c, struct mg_http_message *hm)
+{
+  // Create JSON Array
+  cJSON *json_array = cJSON_CreateArray();
+
+  pthread_mutex_lock(&global_list_lock);
+
+  Table *curr = global_tables_head;
+  while (curr != NULL)
+  {
+    // Add the string ID to the array
+    cJSON_AddItemToArray(json_array, cJSON_CreateString(curr->table_id));
+    curr = curr->next;
+  }
+  // Send Response
+  char *response_str = cJSON_PrintUnformatted(json_array);
+  mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
+                "%s", response_str);
+
+  pthread_mutex_unlock(&global_list_lock);
+
+  free(response_str);
+  cJSON_Delete(json_array);
+}
 
 // --- 1. Handles insertion (Supports insertion at specific position) ---
 void handle_insertion(struct mg_connection *c, struct mg_http_message *hm)
@@ -16,6 +43,24 @@ void handle_insertion(struct mg_connection *c, struct mg_http_message *hm)
   {
     mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
                   "{ \"status\": \"Error\", \"message\": \"Invalid JSON\" }");
+    return;
+  }
+
+  // --- Get Table Id ---
+  cJSON *j_table_id = cJSON_GetObjectItem(json, "table_id");
+  if (!j_table_id || !cJSON_IsString(j_table_id))
+  {
+    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Missing Table ID\" }");
+    cJSON_Delete(json);
+    return;
+  }
+
+  // --- Get the Table Struct ---
+  Table *t = get_or_create_table(j_table_id->valuestring);
+  if (!t)
+  {
+    mg_http_reply(c, 500, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Table Creation Failed\" }");
+    cJSON_Delete(json);
     return;
   }
 
@@ -40,13 +85,13 @@ void handle_insertion(struct mg_connection *c, struct mg_http_message *hm)
   }
 
   // lock using Mutex lock
-  pthread_mutex_lock(&list_lock);
+  pthread_mutex_lock(&t->lock);
 
   // validate Inputs
-  const char *error_msg = validate_employee_json(j_data);
+  const char *error_msg = validate_employee_json(j_data, t);
   if (error_msg != NULL)
   {
-    pthread_mutex_unlock(&list_lock);
+    pthread_mutex_unlock(&t->lock);
     free(insert);
 
     mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
@@ -55,57 +100,14 @@ void handle_insertion(struct mg_connection *c, struct mg_http_message *hm)
     return;
   }
 
-  // Logic: Linked List Insertion
-  // Case 1: List is Empty
-  if (my_list.head == NULL)
-  {
-    my_list.head = insert;
-    my_list.tail = insert; // Head and Tail are the same node
-  }
+  // inserting the list
+  insert_node_at_pos(t, insert, position);
 
-  // Case 2: Insert at Head
-  else if (position == 0)
-  {
-    insert->next = my_list.head;
-    my_list.head = insert;
-  }
-
-  // Case 3: Insert at Tail (Append)
-  else if (position == -1)
-  {
-    my_list.tail->next = insert;
-    my_list.tail = insert; // Point current tail to new node
-  }
-
-  // Case 4: Insert at Specific Index (Middle)
-  else
-  {
-    emp *curr = my_list.head;
-    emp *prev = NULL;
-    int curr_pos = 0;
-
-    while (curr != NULL && curr_pos < position)
-    {
-      prev = curr;
-      curr = curr->next;
-      curr_pos++;
-    }
-
-    // If position > list_length, append to end
-    if (curr == NULL)
-    {
-      my_list.tail->next = insert;
-      my_list.tail = insert;
-    }
-    else
-    {
-      prev->next = insert;
-      insert->next = curr;
-    }
-  }
+  // Now that the list is modified, save it immediately
+  save_table_binary(t);
 
   // Unlock after insertion completion
-  pthread_mutex_unlock(&list_lock);
+  pthread_mutex_unlock(&t->lock);
 
   // Sending the json response for successful insertion
   mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
@@ -119,12 +121,29 @@ void handle_insertion(struct mg_connection *c, struct mg_http_message *hm)
 // --- Handles Display (returns all employees as a JSON Array) ---
 void handle_showall(struct mg_connection *c, struct mg_http_message *hm)
 {
+  // Extract 'table_id' from the URL Query String
+  char table_id[50];
+  if (mg_http_get_var(&hm->query, "table_id", table_id, sizeof(table_id)) <= 0)
+  {
+    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
+                  "{ \"status\": \"Error\", \"message\": \"Missing 'table_id' parameter in URL\" }");
+    return;
+  }
+
+  // Get the specific Table
+  Table *t = get_or_create_table(table_id);
+  if (!t)
+  {
+    mg_http_reply(c, 500, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Table Creation Failed\" }");
+    return;
+  }
+
   cJSON *json_array = cJSON_CreateArray();
 
-  // lock the list
-  pthread_mutex_lock(&list_lock);
+  // lock the specific table
+  pthread_mutex_lock(&t->lock);
 
-  emp *curr = my_list.head;
+  emp *curr = t->employeelist.head;
 
   // Traverse the Linked List
   while (curr != NULL)
@@ -146,7 +165,7 @@ void handle_showall(struct mg_connection *c, struct mg_http_message *hm)
   char *response_str = cJSON_PrintUnformatted(json_array);
 
   // Unlock the list
-  pthread_mutex_unlock(&list_lock);
+  pthread_mutex_unlock(&t->lock);
 
   // Successful Response with data
   mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "%s", response_str);
@@ -159,7 +178,8 @@ void handle_showall(struct mg_connection *c, struct mg_http_message *hm)
 // --- Handles Search by ID (Linear Search: as the data is not sorted according to ID) ---
 void handle_search_by_id(struct mg_connection *c, struct mg_http_message *hm)
 {
-  char id_str[32];
+  char id_str[32], table_id[50];
+
   // Extract Id from query string
   if (mg_http_get_var(&hm->query, "id", id_str, sizeof(id_str)) <= 0)
   {
@@ -167,13 +187,28 @@ void handle_search_by_id(struct mg_connection *c, struct mg_http_message *hm)
                   "{ \"status\": \"Error\", \"message\": \"Missing 'id' parameter in URL\" }");
     return;
   }
+  // Extract Table Id from query string
+  if (mg_http_get_var(&hm->query, "table_id", table_id, sizeof(table_id)) <= 0)
+  {
+    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
+                  "{ \"status\": \"Error\", \"message\": \"Missing 'table_id' parameter in URL\" }");
+    return;
+  }
+  // Get the specific Table
+  Table *t = get_or_create_table(table_id);
+  if (!t)
+  {
+    mg_http_reply(c, 500, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Table Creation Failed\" }");
+    return;
+  }
+
   // lock the list
-  pthread_mutex_lock(&list_lock);
+  pthread_mutex_lock(&t->lock);
 
   int target_id = atoi(id_str);
 
   // Linear Search for the ID
-  emp *curr = my_list.head;
+  emp *curr = t->employeelist.head;
   while (curr != NULL && curr->id != target_id)
   {
     curr = curr->next;
@@ -183,7 +218,7 @@ void handle_search_by_id(struct mg_connection *c, struct mg_http_message *hm)
   if (curr == NULL)
   {
     // unlock the list
-    pthread_mutex_unlock(&list_lock);
+    pthread_mutex_unlock(&t->lock);
 
     mg_http_reply(c, 404, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
                   "{\"message\": \"The Id %d Doesn't exist\"}", target_id);
@@ -201,7 +236,7 @@ void handle_search_by_id(struct mg_connection *c, struct mg_http_message *hm)
   char *response_str = cJSON_PrintUnformatted(emp_obj);
 
   // unlock the list
-  pthread_mutex_unlock(&list_lock);
+  pthread_mutex_unlock(&t->lock);
 
   // Response
   mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "%s", response_str);
@@ -214,42 +249,61 @@ void handle_search_by_id(struct mg_connection *c, struct mg_http_message *hm)
 // --- Handles Deletion (Removes a node by ID and frees its memory) ---
 void handle_delete(struct mg_connection *c, struct mg_http_message *hm)
 {
-  char id_str[32];
+  char id_str[32], table_id[50];
   // Extract id from query string
   if (mg_http_get_var(&hm->query, "id", id_str, sizeof(id_str)) <= 0)
   {
     mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
-                  "{ \"status\": \"Error\", \"message\": \"Invalid JSON\" }");
+                  "{ \"status\": \"Error\", \"message\": \"'id' Field not found in the URL\" }");
     return;
   }
+
+  // Extract id from query string
+  if (mg_http_get_var(&hm->query, "table_id", table_id, sizeof(table_id)) <= 0)
+  {
+    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
+                  "{ \"status\": \"Error\", \"message\": \"'table_id' Field not found in the URL\" }");
+    return;
+  }
+
+  Table *t = get_or_create_table(table_id);
+  if (!t)
+  {
+    mg_http_reply(c, 500, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Table creation failed\" }");
+    return;
+  }
+
   int target_id = atoi(id_str);
 
   // lock the list
-  pthread_mutex_lock(&list_lock);
+  pthread_mutex_lock(&t->lock);
 
   // Check if list is empty
-  if (my_list.head == NULL)
+  if (t->employeelist.head == NULL)
   {
     // unlock the list
-    pthread_mutex_unlock(&list_lock);
+    pthread_mutex_unlock(&t->lock);
     mg_http_reply(c, 404, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
                   "{ \"status\": \"Error\", \"message\": \"List is Empty\" }");
     return;
   }
 
-  emp *curr = my_list.head;
+  emp *curr = t->employeelist.head;
   emp *prev = NULL;
 
   // Deleting the HEAD node
   if (curr != NULL && curr->id == target_id)
   {
-    my_list.head = curr->next;
-    if (my_list.head == NULL)
+    t->employeelist.head = curr->next;
+    if (t->employeelist.head == NULL)
     {
-      my_list.tail = NULL;
+      t->employeelist.tail = NULL;
     }
+
+    save_table_binary(t);
+
     // unlock the list
-    pthread_mutex_unlock(&list_lock);
+    pthread_mutex_unlock(&t->lock);
 
     free(curr); // Free the memory of the deleted node
 
@@ -270,7 +324,7 @@ void handle_delete(struct mg_connection *c, struct mg_http_message *hm)
   if (curr == NULL)
   {
     // unlock the list
-    pthread_mutex_unlock(&list_lock);
+    pthread_mutex_unlock(&t->lock);
     mg_http_reply(c, 404, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
                   "{\"message\": \"ID %d not found\"}", target_id);
     return;
@@ -278,13 +332,15 @@ void handle_delete(struct mg_connection *c, struct mg_http_message *hm)
 
   // Node Found: Unlink it
   prev->next = curr->next;
-  if (curr == my_list.tail)
+  if (curr == t->employeelist.tail)
   {
-    my_list.tail = prev;
+    t->employeelist.tail = prev;
   }
 
+  save_table_binary(t);
+
   // unlock the list
-  pthread_mutex_unlock(&list_lock);
+  pthread_mutex_unlock(&t->lock);
 
   // Cleanup
   free(curr);
@@ -297,11 +353,27 @@ void handle_delete(struct mg_connection *c, struct mg_http_message *hm)
 // --- Reverse Linked List ---
 void handle_reverse(struct mg_connection *c, struct mg_http_message *hm)
 {
-  // lock the list
-  pthread_mutex_lock(&list_lock);
+  char table_id[50];
+  // Extract Table Id from query string
+  if (mg_http_get_var(&hm->query, "table_id", table_id, sizeof(table_id)) <= 0)
+  {
+    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
+                  "{ \"status\": \"Error\", \"message\": \"Missing 'table_id' parameter in URL\" }");
+    return;
+  }
 
-  emp *prev = NULL, *curr = my_list.head, *next = NULL;
-  emp *old_head = my_list.head;
+  Table *t = get_or_create_table(table_id);
+  if (!t)
+  {
+    mg_http_reply(c, 500, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Table creation failed\" }");
+    return;
+  }
+
+  // lock the list
+  pthread_mutex_lock(&t->lock);
+
+  emp *prev = NULL, *curr = t->employeelist.head, *next = NULL;
+  emp *old_head = t->employeelist.head;
   while (curr != NULL)
   {
     next = curr->next;
@@ -309,11 +381,14 @@ void handle_reverse(struct mg_connection *c, struct mg_http_message *hm)
     prev = curr;
     curr = next;
   }
-  my_list.head = prev;
-  my_list.tail = old_head;
+  t->employeelist.head = prev;
+  t->employeelist.tail = old_head;
+
+  // Save to Disk
+  save_table_binary(t);
 
   // unlock the list
-  pthread_mutex_unlock(&list_lock);
+  pthread_mutex_unlock(&t->lock);
   // Response
   mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{\"status\": \"Success\"}");
 }
@@ -321,16 +396,33 @@ void handle_reverse(struct mg_connection *c, struct mg_http_message *hm)
 // --- Handle Recursive Reverse ---
 void handle_recursive_reverse(struct mg_connection *c, struct mg_http_message *hm)
 {
+  // Extract 'table_id' from the URL Query String
+  char table_id[50];
+  if (mg_http_get_var(&hm->query, "table_id", table_id, sizeof(table_id)) <= 0)
+  {
+    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
+                  "{ \"status\": \"Error\", \"message\": \"Missing 'table_id' parameter in URL\" }");
+    return;
+  }
+
+  // Get the specific Table
+  Table *t = get_or_create_table(table_id);
+  if (!t)
+  {
+    mg_http_reply(c, 500, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Table Creation Failed\" }");
+    return;
+  }
+
   cJSON *json_array = cJSON_CreateArray();
 
   // lock the list
-  pthread_mutex_lock(&list_lock);
+  pthread_mutex_lock(&t->lock);
 
   // Helper function located in utilis.c
-  recursive_json_builder(my_list.head, json_array);
+  recursive_json_builder(t->employeelist.head, json_array);
 
   // unlock the list
-  pthread_mutex_unlock(&list_lock);
+  pthread_mutex_unlock(&t->lock);
 
   char *response_str = cJSON_PrintUnformatted(json_array);
 
@@ -342,30 +434,155 @@ void handle_recursive_reverse(struct mg_connection *c, struct mg_http_message *h
   cJSON_Delete(json_array);
 }
 
+// --- Handle Update ---
+void handle_update(struct mg_connection *c, struct mg_http_message *hm)
+{
+  // Parse JSON
+  cJSON *json = cJSON_ParseWithLength(hm->body.buf, hm->body.len);
+  if (!json)
+  {
+    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Invalid JSON\" }");
+    return;
+  }
+  // 2. Extract Metadata
+  cJSON *j_table_id = cJSON_GetObjectItem(json, "table_id");
+  cJSON *j_orig_id = cJSON_GetObjectItem(json, "original_id");
+  cJSON *j_pos = cJSON_GetObjectItem(json, "position");
+  cJSON *j_data = cJSON_GetObjectItem(json, "data");
+
+  if (!j_table_id || !cJSON_IsString(j_table_id) || !j_orig_id || !j_data)
+  {
+    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Missing required fields\" }");
+    cJSON_Delete(json);
+    return;
+  }
+  int original_id = j_orig_id->valueint;
+  int target_pos = j_pos ? j_pos->valueint : -1;
+
+  // 3. Get Table & Prepare New Node
+  Table *t = get_or_create_table(j_table_id->valuestring);
+
+  // Create the new node *before* locking (Optimization)
+  emp *new_node = create_node_from_json(j_data);
+  if (!new_node)
+  {
+    mg_http_reply(c, 500, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Memory Error\" }");
+    cJSON_Delete(json);
+    return;
+  }
+  // --- CRITICAL SECTION STARTS ---
+  pthread_mutex_lock(&t->lock);
+
+  // 4. Collision Check: If changing ID, ensure new ID is free
+  if (new_node->id != original_id)
+  {
+    emp *check = t->employeelist.head;
+    while (check)
+    {
+      if (check->id == new_node->id)
+      {
+        pthread_mutex_unlock(&t->lock);
+        free(new_node); // Clean up
+        cJSON_Delete(json);
+        mg_http_reply(c, 409, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"New ID already exists\" }");
+        return;
+      }
+      check = check->next;
+    }
+  }
+  // 5. FIND & DETACH OLD NODE
+  emp *curr = t->employeelist.head;
+  emp *prev = NULL;
+  int found = 0;
+  while (curr != NULL)
+  {
+    if (curr->id == original_id)
+    {
+      // Found it. Unlink it.
+      if (prev == NULL)
+      {
+        t->employeelist.head = curr->next;
+      }
+      else
+      {
+        prev->next = curr->next;
+      }
+
+      if (curr == t->employeelist.tail)
+      {
+        t->employeelist.tail = prev;
+      }
+
+      free(curr); // Delete the old record
+      found = 1;
+      break;
+    }
+    prev = curr;
+    curr = curr->next;
+  }
+
+  if (!found)
+  {
+    pthread_mutex_unlock(&t->lock);
+    free(new_node);
+    cJSON_Delete(json);
+    mg_http_reply(c, 404, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Original ID not found\" }");
+    return;
+  }
+
+  // INSERT NEW NODE
+  insert_node_at_pos(t, new_node, target_pos);
+
+  // Save & Unlock
+  save_table_binary(t);
+  pthread_mutex_unlock(&t->lock);
+
+  mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Success\", \"message\": \"Employee Updated\" }");
+  cJSON_Delete(json);
+}
+
 // --- Handle CSV Export ---
 void handle_export(struct mg_connection *c, struct mg_http_message *hm)
 {
-  // STEP 1. 'Content-Disposition: attachment' forces the browser to download the file.
-  char *headers =
-      "HTTP/1.1 200 OK\r\n"
-      "Content-Type: text/csv\r\n"
-      "Content-Disposition: attachment; filename=\"linked_vault_data.csv\"\r\n"
-      "Access-Control-Allow-Origin: *\r\n"
-      "Connection: close\r\n"
-      "\r\n";
+  char table_id[50];
+  // Extract id from query string
+  if (mg_http_get_var(&hm->query, "table_id", table_id, sizeof(table_id)) <= 0)
+  {
+    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
+                  "{ \"status\": \"Error\", \"message\": \"'table_id' Field not found in the URL\" }");
+    return;
+  }
 
-  // STEP 2. Send Headers First
-  mg_send(c, headers, strlen(headers));
+  Table *t = get_or_create_table(table_id);
+  if (!t)
+  {
+    mg_http_reply(c, 500, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Table creation failed\" }");
+    return;
+  }
 
-  // STEP 3. Send CSV Column Headers
+  // 'Content-Disposition: attachment' forces the browser to download the file.
+  char header_buffer[512];
+  snprintf(header_buffer, sizeof(header_buffer),
+           "HTTP/1.1 200 OK\r\n"
+           "Content-Type: text/csv\r\n"
+           "Content-Disposition: attachment; filename=\"%s_data.csv\"\r\n"
+           "Access-Control-Allow-Origin: *\r\n"
+           "Connection: close\r\n"
+           "\r\n",
+           t->table_id);
+
+  // Send Headers First
+  mg_send(c, header_buffer, strlen(header_buffer));
+
+  // Send CSV Column Headers
   char *csv_header_row = "ID,Name,Age,Department,Salary\n";
   mg_send(c, csv_header_row, strlen(csv_header_row));
 
   // lock the list
-  pthread_mutex_lock(&list_lock);
+  pthread_mutex_lock(&t->lock);
 
-  // 4. Loop and Stream Data
-  emp *curr = my_list.head;
+  // Loop and Stream Data
+  emp *curr = t->employeelist.head;
   char buffer[1024];
 
   while (curr != NULL)
@@ -388,13 +605,13 @@ void handle_export(struct mg_connection *c, struct mg_http_message *hm)
     {
       len_to_send = (size_t)line_len;
     }
-    
+
     // Send this specific line to the client
     mg_send(c, buffer, len_to_send);
     curr = curr->next;
   }
   // unlock the list
-  pthread_mutex_unlock(&list_lock);
+  pthread_mutex_unlock(&t->lock);
 
   // 5. Signal Mongoose that we are done
   c->is_draining = 1;
@@ -403,26 +620,45 @@ void handle_export(struct mg_connection *c, struct mg_http_message *hm)
 // --- Handle CSV Import ---
 void handle_import(struct mg_connection *c, struct mg_http_message *hm)
 {
-  // 1. Basic Safety Checks
-  if (hm == NULL || hm->body.len == 0 || hm->body.buf == NULL)
+  char table_id[50];
+  // Extract id from query string
+  if (mg_http_get_var(&hm->query, "table_id", table_id, sizeof(table_id)) <= 0)
   {
-    mg_http_reply(c, 400, "", "Empty or Invalid Request");
+    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
+                  "{ \"status\": \"Error\", \"message\": \"'table_id' Field not found in the URL\" }");
     return;
   }
 
-  // 2. Allocate Memory
+  Table *t = get_or_create_table(table_id);
+  if (!t)
+  {
+    mg_http_reply(c, 500, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Table creation failed\" }");
+    return;
+  }
+
+  // Basic Safety Checks
+  if (hm == NULL || hm->body.len == 0 || hm->body.buf == NULL)
+  {
+    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Empty CSV Body\" }");
+    return;
+  }
+
+  // Allocate Memory
   char *csv_content = malloc(hm->body.len + 1);
   if (!csv_content)
   {
-    mg_http_reply(c, 500, "", "{\"message\": \"Memory Error\"}");
+    mg_http_reply(c, 500, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Server Memory Error\" }");
     return;
   }
 
-  // 3. Copy Data and Null Terminate
+  // Copy Data and Null Terminate
   memcpy(csv_content, hm->body.buf, hm->body.len);
   csv_content[hm->body.len] = '\0';
 
-  // 4. Parse Lines (Safe Method)
+  // 4. LOCK ONCE
+  pthread_mutex_lock(&t->lock);
+
+  // Parse Lines (Safe Method)
   char *cursor = csv_content;
   char *line_start = cursor;
   int count = 0;
@@ -460,10 +696,10 @@ void handle_import(struct mg_connection *c, struct mg_http_message *hm)
                  &id, name, &age, dept, &salary) == 5)
       {
         // validation
-        const char *error_msg = validate_core_logic(id, name, age, dept, salary);
+        const char *error_msg = validate_core_logic(t, id, name, age, dept, salary);
         if (error_msg == NULL)
         {
-          append_to_list(id, name, age, dept, salary);
+          append_to_list(t, id, name, age, dept, salary);
           count++;
         }
         else
@@ -482,7 +718,11 @@ void handle_import(struct mg_connection *c, struct mg_http_message *hm)
     cursor = line_start;
   }
 
-  // 5. Cleanup and Reply
+  // Save and Unlock
+  save_table_binary(t);
+  pthread_mutex_unlock(&t->lock);
+
+  // Cleanup and Reply
   free(csv_content);
 
   mg_http_reply(c, 200,
@@ -493,21 +733,37 @@ void handle_import(struct mg_connection *c, struct mg_http_message *hm)
 // --- Handle Linkedlist cleanup ---
 void handle_delete_linkedlist(struct mg_connection *c, struct mg_http_message *hm)
 {
+  char table_id[50];
+  // Extract Table Id from query string
+  if (mg_http_get_var(&hm->query, "table_id", table_id, sizeof(table_id)) <= 0)
+  {
+    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
+                  "{ \"status\": \"Error\", \"message\": \"Missing 'table_id' parameter in URL\" }");
+    return;
+  }
+
+  Table *t = get_or_create_table(table_id);
+  if (!t)
+  {
+    mg_http_reply(c, 500, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Table creation failed\" }");
+    return;
+  }
+
   // lock the list
-  pthread_mutex_lock(&list_lock);
+  pthread_mutex_lock(&t->lock);
 
   // Check if list is empty
-  if (my_list.head == NULL)
+  if (t->employeelist.head == NULL)
   {
     // unlock the list
-    pthread_mutex_unlock(&list_lock);
+    pthread_mutex_unlock(&t->lock);
 
     mg_http_reply(c, 404, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
                   "{ \"status\": \"Error\", \"message\": \"List is Empty\" }");
     return;
   }
   // Create a current and previous node
-  emp *curr = my_list.head;
+  emp *curr = t->employeelist.head;
   emp *prev = NULL;
   // loop runs untill
   while (curr != NULL)
@@ -519,11 +775,14 @@ void handle_delete_linkedlist(struct mg_connection *c, struct mg_http_message *h
   }
 
   // Set the head and tail pointers to NULL
-  my_list.head = NULL;
-  my_list.tail = NULL;
+  t->employeelist.head = NULL;
+  t->employeelist.tail = NULL;
+
+  // Save the empty state to disk
+  save_table_binary(t);
 
   // unlock the list
-  pthread_mutex_unlock(&list_lock);
+  pthread_mutex_unlock(&t->lock);
 
   mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
                 "{ \"status\": \"Success\"}");

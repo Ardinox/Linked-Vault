@@ -42,11 +42,13 @@ h1 {
     background-color: #f1c40f;
     color: #2c3e50;
     font-weight: bold;
-    padding: 10px 30px;
+    padding: 10px 40px;
     border-radius: 25px;
-    transition: transform 0.2s;
+    transition: transform 0.2s, background-color 0.2s;
     border: none;
     text-decoration: none;
+    display: inline-block;
+    margin-top: 15px;
 }
 
 .btn-enter:hover {
@@ -54,3 +56,28 @@ h1 {
     transform: scale(1.05);
     color: #2c3e50;
 }
+
+.form-content {
+    width: 85%; 
+}
+
+.glass-input {
+    background: rgba(0, 0, 0, 0.2) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: white !important;
+    border-radius: 25px;
+    padding: 10px 20px;
+}
+
+.glass-input::placeholder {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.glass-input:focus {
+    background: rgba(0, 0, 0, 0.3) !important;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.1) !important;
+    border-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+
+
