@@ -36,4 +36,7 @@ void recursive_json_builder(emp *curr, cJSON *json_array);
 // --- HELPER: To add to the global list efficiently ---
 void append_to_list(Table *t, int id, char *name, int age, char *dept, int salary);
 
+// --- HELPER: To insert a node at a give position (For insert and update function) ---
+void insert_node_at_pos(Table *t, emp *insert, int position);
+
 #endif

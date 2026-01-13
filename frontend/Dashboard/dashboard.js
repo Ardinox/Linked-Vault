@@ -18,6 +18,12 @@ let isRecursiveView = false;
 
 // --- GLOBAL EVENT LISTENER (The Router) ---
 document.addEventListener("DOMContentLoaded", () => {
+  const form = document.querySelector("form");
+  if (form) {
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+    });
+  }
   // "Close" button on Add Page
   const closeBtn = document.getElementById("closeBtn");
   if (closeBtn) {
@@ -158,7 +164,10 @@ function renderTable(data) {
 
 // --- 1. ADD DATA ---
 async function addData(e) {
-  if (e) e.preventDefault();
+  if(e) { 
+      e.preventDefault(); 
+      e.stopPropagation();
+  }
 
   const addBtn = document.getElementById("addBtn");
 
@@ -338,28 +347,10 @@ async function performUpdate(e) {
   }
 
   try {
-    // Step 1: Delete Old
-    const delRes = await fetch(
-      `${API_URL}/delete?id=${originalId}&table_id=${TABLE_ID}`,
-      {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-      }
-    );
-
-    if (!delRes.ok) {
-      const err = await delRes.json();
-      showStatus("Update Failed (Delete Step): " + err.message, "error");
-      if (updateBtn) {
-        updateBtn.disabled = false;
-        updateBtn.innerText = "Update";
-      }
-      return;
-    }
-
-    // Step 2: Insert New
+    // Construct Payload
     const payload = {
       table_id: TABLE_ID,
+      original_id: parseInt(originalId),
       position: parseInt(newPos),
       data: {
         id: parseInt(newId),
@@ -370,27 +361,33 @@ async function performUpdate(e) {
       },
     };
 
-    const insRes = await fetch(`${API_URL}/insert`, {
-      method: "POST",
+    // Send 'PUT' Request
+    const response = await fetch(`${API_URL}/update`, {
+      method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+    const result = await response.json();
 
-    if (insRes.ok) {
+    if (response.ok) {
       isRedirecting = true;
-      showStatus("Update Successful!");
+      showStatus("Update Successfull!");
       window.location.replace(`table_view.html?table_id=${TABLE_ID}`);
     } else {
-      const res = await insRes.json();
-      showStatus("Update Failed (Insert Step): " + res.message, "error");
+      // If server rejects it (e.g. Duplicate ID), the old data is STILL SAFE.
+      showStatus(
+        "Update Failed: " + (result.message || "Unknown error"),
+        "error"
+      );
     }
   } catch (error) {
     console.error("Update Error:", error);
-    showStatus("Network Error.", "error");
+    showStatus("Network Error: Could not reach server.", "error");
   } finally {
+    // 7. Re-enable button if we aren't leaving the page
     if (!isRedirecting && updateBtn) {
       updateBtn.disabled = false;
-      updateBtn.innerHTML = "Update";
+      updateBtn.innerText = "Update";
     }
   }
 }

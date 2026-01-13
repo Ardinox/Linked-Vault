@@ -62,6 +62,10 @@ static void fn(struct mg_connection *c, int ev, void *ev_data)
     {
       handle_recursive_reverse(c, hm);
     }
+    else if (mg_match(hm->uri, mg_str("/update"), NULL) && is_method(hm, "PUT"))
+    {
+      handle_update(c, hm);
+    }
     else if (mg_match(hm->uri, mg_str("/upload_csv"), NULL) && is_method(hm, "POST"))
     {
       handle_import(c, hm);

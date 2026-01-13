@@ -7,28 +7,29 @@
 #include "table.h"
 #include "storage.h"
 
-void handle_get_tables(struct mg_connection *c, struct mg_http_message *hm){
+void handle_get_tables(struct mg_connection *c, struct mg_http_message *hm)
+{
   // Create JSON Array
-    cJSON *json_array = cJSON_CreateArray();
+  cJSON *json_array = cJSON_CreateArray();
 
-    pthread_mutex_lock(&global_list_lock);
+  pthread_mutex_lock(&global_list_lock);
 
-    Table *curr = global_tables_head;
-    while (curr != NULL)
-    {
-        // Add the string ID to the array
-        cJSON_AddItemToArray(json_array, cJSON_CreateString(curr->table_id));
-        curr = curr->next;
-    }
-    // Send Response
-    char *response_str = cJSON_PrintUnformatted(json_array);
-    mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", 
-                  "%s", response_str);
+  Table *curr = global_tables_head;
+  while (curr != NULL)
+  {
+    // Add the string ID to the array
+    cJSON_AddItemToArray(json_array, cJSON_CreateString(curr->table_id));
+    curr = curr->next;
+  }
+  // Send Response
+  char *response_str = cJSON_PrintUnformatted(json_array);
+  mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
+                "%s", response_str);
 
-    pthread_mutex_unlock(&global_list_lock);
+  pthread_mutex_unlock(&global_list_lock);
 
-    free(response_str);
-    cJSON_Delete(json_array);
+  free(response_str);
+  cJSON_Delete(json_array);
 }
 
 // --- 1. Handles insertion (Supports insertion at specific position) ---
@@ -99,54 +100,8 @@ void handle_insertion(struct mg_connection *c, struct mg_http_message *hm)
     return;
   }
 
-  // Logic: Linked List Insertion
-  // Case 1: List is Empty
-  if (t->employeelist.head == NULL)
-  {
-    t->employeelist.head = insert;
-    t->employeelist.tail = insert; // Head and Tail are the same node
-  }
-
-  // Case 2: Insert at Head
-  else if (position == 0)
-  {
-    insert->next = t->employeelist.head;
-    t->employeelist.head = insert;
-  }
-
-  // Case 3: Insert at Tail (Append)
-  else if (position == -1)
-  {
-    t->employeelist.tail->next = insert;
-    t->employeelist.tail = insert; // Point current tail to new node
-  }
-
-  // Case 4: Insert at Specific Index (Middle)
-  else
-  {
-    emp *curr = t->employeelist.head;
-    emp *prev = NULL;
-    int curr_pos = 0;
-
-    while (curr != NULL && curr_pos < position)
-    {
-      prev = curr;
-      curr = curr->next;
-      curr_pos++;
-    }
-
-    // If position > list_length, append to end
-    if (curr == NULL)
-    {
-      t->employeelist.tail->next = insert;
-      t->employeelist.tail = insert;
-    }
-    else
-    {
-      prev->next = insert;
-      insert->next = curr;
-    }
-  }
+  // inserting the list
+  insert_node_at_pos(t, insert, position);
 
   // Now that the list is modified, save it immediately
   save_table_binary(t);
@@ -175,9 +130,9 @@ void handle_showall(struct mg_connection *c, struct mg_http_message *hm)
     return;
   }
 
-  //Get the specific Table
+  // Get the specific Table
   Table *t = get_or_create_table(table_id);
-  if(!t)
+  if (!t)
   {
     mg_http_reply(c, 500, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Table Creation Failed\" }");
     return;
@@ -241,7 +196,7 @@ void handle_search_by_id(struct mg_connection *c, struct mg_http_message *hm)
   }
   // Get the specific Table
   Table *t = get_or_create_table(table_id);
-  if(!t)
+  if (!t)
   {
     mg_http_reply(c, 500, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Table Creation Failed\" }");
     return;
@@ -312,7 +267,8 @@ void handle_delete(struct mg_connection *c, struct mg_http_message *hm)
   }
 
   Table *t = get_or_create_table(table_id);
-  if(!t){
+  if (!t)
+  {
     mg_http_reply(c, 500, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Table creation failed\" }");
     return;
   }
@@ -407,7 +363,8 @@ void handle_reverse(struct mg_connection *c, struct mg_http_message *hm)
   }
 
   Table *t = get_or_create_table(table_id);
-  if(!t){
+  if (!t)
+  {
     mg_http_reply(c, 500, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Table creation failed\" }");
     return;
   }
@@ -448,9 +405,9 @@ void handle_recursive_reverse(struct mg_connection *c, struct mg_http_message *h
     return;
   }
 
-  //Get the specific Table
+  // Get the specific Table
   Table *t = get_or_create_table(table_id);
-  if(!t)
+  if (!t)
   {
     mg_http_reply(c, 500, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Table Creation Failed\" }");
     return;
@@ -477,6 +434,113 @@ void handle_recursive_reverse(struct mg_connection *c, struct mg_http_message *h
   cJSON_Delete(json_array);
 }
 
+// --- Handle Update ---
+void handle_update(struct mg_connection *c, struct mg_http_message *hm)
+{
+  // Parse JSON
+  cJSON *json = cJSON_ParseWithLength(hm->body.buf, hm->body.len);
+  if (!json)
+  {
+    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Invalid JSON\" }");
+    return;
+  }
+  // 2. Extract Metadata
+  cJSON *j_table_id = cJSON_GetObjectItem(json, "table_id");
+  cJSON *j_orig_id = cJSON_GetObjectItem(json, "original_id");
+  cJSON *j_pos = cJSON_GetObjectItem(json, "position");
+  cJSON *j_data = cJSON_GetObjectItem(json, "data");
+
+  if (!j_table_id || !cJSON_IsString(j_table_id) || !j_orig_id || !j_data)
+  {
+    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Missing required fields\" }");
+    cJSON_Delete(json);
+    return;
+  }
+  int original_id = j_orig_id->valueint;
+  int target_pos = j_pos ? j_pos->valueint : -1;
+
+  // 3. Get Table & Prepare New Node
+  Table *t = get_or_create_table(j_table_id->valuestring);
+
+  // Create the new node *before* locking (Optimization)
+  emp *new_node = create_node_from_json(j_data);
+  if (!new_node)
+  {
+    mg_http_reply(c, 500, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Memory Error\" }");
+    cJSON_Delete(json);
+    return;
+  }
+  // --- CRITICAL SECTION STARTS ---
+  pthread_mutex_lock(&t->lock);
+
+  // 4. Collision Check: If changing ID, ensure new ID is free
+  if (new_node->id != original_id)
+  {
+    emp *check = t->employeelist.head;
+    while (check)
+    {
+      if (check->id == new_node->id)
+      {
+        pthread_mutex_unlock(&t->lock);
+        free(new_node); // Clean up
+        cJSON_Delete(json);
+        mg_http_reply(c, 409, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"New ID already exists\" }");
+        return;
+      }
+      check = check->next;
+    }
+  }
+  // 5. FIND & DETACH OLD NODE
+  emp *curr = t->employeelist.head;
+  emp *prev = NULL;
+  int found = 0;
+  while (curr != NULL)
+  {
+    if (curr->id == original_id)
+    {
+      // Found it. Unlink it.
+      if (prev == NULL)
+      {
+        t->employeelist.head = curr->next;
+      }
+      else
+      {
+        prev->next = curr->next;
+      }
+
+      if (curr == t->employeelist.tail)
+      {
+        t->employeelist.tail = prev;
+      }
+
+      free(curr); // Delete the old record
+      found = 1;
+      break;
+    }
+    prev = curr;
+    curr = curr->next;
+  }
+
+  if (!found)
+  {
+    pthread_mutex_unlock(&t->lock);
+    free(new_node);
+    cJSON_Delete(json);
+    mg_http_reply(c, 404, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Original ID not found\" }");
+    return;
+  }
+
+  // INSERT NEW NODE
+  insert_node_at_pos(t, new_node, target_pos);
+
+  // Save & Unlock
+  save_table_binary(t);
+  pthread_mutex_unlock(&t->lock);
+
+  mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Success\", \"message\": \"Employee Updated\" }");
+  cJSON_Delete(json);
+}
+
 // --- Handle CSV Export ---
 void handle_export(struct mg_connection *c, struct mg_http_message *hm)
 {
@@ -490,7 +554,8 @@ void handle_export(struct mg_connection *c, struct mg_http_message *hm)
   }
 
   Table *t = get_or_create_table(table_id);
-  if(!t){
+  if (!t)
+  {
     mg_http_reply(c, 500, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Table creation failed\" }");
     return;
   }
@@ -498,13 +563,13 @@ void handle_export(struct mg_connection *c, struct mg_http_message *hm)
   // 'Content-Disposition: attachment' forces the browser to download the file.
   char header_buffer[512];
   snprintf(header_buffer, sizeof(header_buffer),
-    "HTTP/1.1 200 OK\r\n"
-    "Content-Type: text/csv\r\n"
-    "Content-Disposition: attachment; filename=\"%s_data.csv\"\r\n"
-    "Access-Control-Allow-Origin: *\r\n"
-    "Connection: close\r\n"
-    "\r\n",
-    t->table_id);
+           "HTTP/1.1 200 OK\r\n"
+           "Content-Type: text/csv\r\n"
+           "Content-Disposition: attachment; filename=\"%s_data.csv\"\r\n"
+           "Access-Control-Allow-Origin: *\r\n"
+           "Connection: close\r\n"
+           "\r\n",
+           t->table_id);
 
   // Send Headers First
   mg_send(c, header_buffer, strlen(header_buffer));
@@ -565,7 +630,8 @@ void handle_import(struct mg_connection *c, struct mg_http_message *hm)
   }
 
   Table *t = get_or_create_table(table_id);
-  if(!t){
+  if (!t)
+  {
     mg_http_reply(c, 500, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Table creation failed\" }");
     return;
   }
@@ -677,7 +743,8 @@ void handle_delete_linkedlist(struct mg_connection *c, struct mg_http_message *h
   }
 
   Table *t = get_or_create_table(table_id);
-  if(!t){
+  if (!t)
+  {
     mg_http_reply(c, 500, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Table creation failed\" }");
     return;
   }

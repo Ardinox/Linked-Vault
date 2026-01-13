@@ -191,3 +191,52 @@ void append_to_list(Table *t, int id, char *name, int age, char *dept, int salar
     t->employeelist.tail = new_node;
   }
 }
+
+// --- HELPER: To insert a node at a give position (For insert and update function) ---
+void insert_node_at_pos(Table *t, emp *insert, int position)
+{
+    // Case 1: List is Empty
+    if (t->employeelist.head == NULL)
+    {
+        t->employeelist.head = insert;
+        t->employeelist.tail = insert;
+    }
+    // Case 2: Insert at Head
+    else if (position == 0)
+    {
+        insert->next = t->employeelist.head;
+        t->employeelist.head = insert;
+    }
+    // Case 3: Insert at Tail (Append)
+    else if (position == -1)
+    {
+        t->employeelist.tail->next = insert;
+        t->employeelist.tail = insert;
+    }
+    // Case 4: Insert at Specific Index (Middle)
+    else
+    {
+        emp *curr = t->employeelist.head;
+        emp *prev = NULL;
+        int curr_pos = 0;
+
+        while (curr != NULL && curr_pos < position)
+        {
+            prev = curr;
+            curr = curr->next;
+            curr_pos++;
+        }
+
+        // If position > list_length, append to end
+        if (curr == NULL)
+        {
+            t->employeelist.tail->next = insert;
+            t->employeelist.tail = insert;
+        }
+        else
+        {
+            prev->next = insert;
+            insert->next = curr;
+        }
+    }
+}
