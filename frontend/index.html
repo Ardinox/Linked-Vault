@@ -4,14 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LinkedVault</title>
-    <link rel="icon" type="image/x-icon" href="./Assets/logo2.png" />
+
+    <link rel="icon" type="image/x-icon" href="Assets/logo2.png" />
+
     <link
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
       rel="stylesheet"
       integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
       crossorigin="anonymous"
     />
-    <link rel="stylesheet" href="index.css" />
+
+    <link rel="stylesheet" href="css/main.css" />
   </head>
   <body>
     <div class="container main-container">
@@ -19,7 +22,7 @@
         <div class="logo-box">
           <img
             class="navb-icon"
-            src="Assets/logo.png"
+            src="Assets/logo2.png"
             width="120"
             height="120"
             alt="Logo"
@@ -32,29 +35,10 @@
         <p class="mb-4 text-light opacity-75 small-text">
           Secure. Fast. Organized.
         </p>
-        <div class="form-content mx-auto">
-          <form id="loginForm">
-            <div class="form-group mb-3">
-              <input
-                type="text"
-                class="form-control glass-input text-center"
-                id="table_id"
-                placeholder="Enter Table ID"
-                required
-              />
-              <small
-                id="tableHelp"
-                class="form-text text-white opacity-75 d-block mt-2"
-                >If the table exists it will load, otherelse a new one is
-                created.</small
-              >
-            </div>
 
-            <button type="submit" class="btn btn-enter mt-2">
-              Get Started
-            </button>
-          </form>
-        </div>
+        <button id="getStartedBtn" class="btn btn-enter mt-3">
+          Get Started
+        </button>
       </div>
     </div>
 
@@ -64,16 +48,6 @@
       crossorigin="anonymous"
     ></script>
 
-    <script>
-      document
-        .getElementById("loginForm")
-        .addEventListener("submit", function (e) {
-          e.preventDefault();
-          const tableId = document.getElementById("table_id").value.trim();
-          window.location.href = `Dashboard/table_view.html?table_id=${encodeURIComponent(
-            tableId
-          )}`;
-        });
-    </script>
+    <script type="module" src="js/pages/landing.js"></script>
   </body>
 </html>

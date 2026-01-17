@@ -1,0 +1,11 @@
+# Ignore heavy dependencies
+node_modules
+
+# Ignore logs
+logs/
+*.log
+
+# Secrets/Config
+.env
+.git
+.vscode

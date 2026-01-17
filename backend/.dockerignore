@@ -1,0 +1,15 @@
+# Binaries / Executables
+LinkedVault.exe
+server
+*.exe
+*.o
+*.dll
+*.so
+
+# Editor / Git files
+.git
+.vscode
+.idea
+
+# Data (If you want the database to be empty initially)
+# data/*.txt
