@@ -1,22 +1,29 @@
 import { Auth } from "../modules/auth.js";
 import { Api } from "../modules/api.js";
 
-// --- 1. INITIALIZATION ---
+// --- 1. IMMEDIATE SECURITY CHECK (Fail Fast) ---
+Auth.checkSession();
+
+// --- 2. INITIALIZATION ---
 const params = new URLSearchParams(window.location.search);
 const TABLE_ID = params.get("table_id");
 
+// If no Table ID, we can't do anything. Stop here.
 if (!TABLE_ID) {
   alert("Access Denied: No Table ID provided.");
   window.location.href = "../index.html";
   throw new Error("No Table ID");
 }
 
+// State for Toggle View
 let isRecursiveView = false;
 
-// --- 2. PAGE LOAD HANDLER ---
+// --- 3. PAGE LOAD HANDLER ---
 document.addEventListener("DOMContentLoaded", () => {
-  Auth.checkSession();
-  loadNavbar();
+  // Only fetch Navbar if we have a place to put it
+  if (document.getElementById("navbar-container")) {
+      loadNavbar();
+  }
 
   // --- FLASH MESSAGE LOGIC ---
   if (params.get("action") === "updated") {
@@ -30,58 +37,69 @@ document.addEventListener("DOMContentLoaded", () => {
     window.history.replaceState({}, document.title, newUrl);
   }
 
-  // Prevent default form submission
+  // Safety Net: Prevent Enter key from reloading the page
   const form = document.querySelector("form");
-  if (form) {
-    form.addEventListener("submit", (e) => e.preventDefault());
-  }
+  if (form) form.addEventListener("submit", (e) => e.preventDefault());
 
-  // A. Logic for "Table View" Page
+  // A. ROUTER: Table View
   if (document.getElementById("tableBody")) {
     window.loadStandardTable();
   }
 
-  // B. Logic for "Add Employee" Page
+  // B. ROUTER: Add Employee Page
   const addBtn = document.getElementById("addBtn");
   if (addBtn) {
-    // 1. RESTORE DATA
     restoreAddForm();
-
-    // 2. AUTO-SAVE DATA
+    
+    // Select all inputs
     const inputs = document.querySelectorAll("#id, #name, #age, #department, #salary");
+    
     inputs.forEach((input) => {
-      input.addEventListener("input", () => {
-        sessionStorage.setItem("add_" + input.id, input.value);
+      // 1. Auto-save drafts
+      input.addEventListener("input", () => sessionStorage.setItem("add_" + input.id, input.value));
+      
+      // 2. UX IMPROVEMENT: Hit Enter to Submit
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+            e.preventDefault(); // Stop form submit
+            addBtn.click();     // Trigger the Add Button
+        }
       });
     });
 
-    // 3. Attach Add Listener
-    addBtn.addEventListener("click", (e) => addData(e));
+    addBtn.addEventListener("click", addData);
   }
 
-  // C. Logic for "Close / Clear" Button (THE FIX)
+  // C. ROUTER: Close/Clear Button
   const clearBtn = document.getElementById("clearBtn");
   if (clearBtn) {
     clearBtn.addEventListener("click", () => {
-        // 1. Wipe the storage and inputs
-        clearAddForm();
-        
-        // 2. Redirect back to Table View
-        window.location.href = `table_view.html?table_id=${TABLE_ID}`;
+      clearAddForm();
+      window.location.href = `table_view.html?table_id=${TABLE_ID}`;
     });
   }
 
-  // D. Logic for "Update Employee" Page
+  // D. ROUTER: Update Employee Page
   const updateBtn = document.getElementById("updateBtn");
   if (updateBtn) {
     const idToUpdate = params.get("id");
-    if (idToUpdate) {
-      loadEmployeeForUpdate(idToUpdate);
-    }
-    updateBtn.addEventListener("click", (e) => performUpdate(e));
+    if (idToUpdate) loadEmployeeForUpdate(idToUpdate);
+    
+    // UX IMPROVEMENT: Hit Enter to Update
+    const inputs = document.querySelectorAll("#id, #name, #age, #department, #salary");
+    inputs.forEach((input) => {
+        input.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                updateBtn.click(); // Trigger the Update Button
+            }
+        });
+    });
+
+    updateBtn.addEventListener("click", performUpdate);
   }
 
-  // Search Listener
+  // E. ROUTER: Search Bar (Already Existed, kept for completeness)
   const searchInput = document.getElementById("searchId");
   if (searchInput) {
     searchInput.addEventListener("keydown", (e) => {
@@ -93,67 +111,57 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-// --- HELPER FUNCTIONS (Must be outside DOMContentLoaded to be accessible) ---
-
+// --- HELPER FUNCTIONS (Form Persistence) ---
 function restoreAddForm() {
-    const fields = ["id", "name", "age", "department", "salary"];
-    fields.forEach(field => {
-        const saved = sessionStorage.getItem("add_" + field);
-        const el = document.getElementById(field);
-        if (saved && el) {
-            el.value = saved;
-        }
-    });
+  ["id", "name", "age", "department", "salary"].forEach((field) => {
+    const saved = sessionStorage.getItem("add_" + field);
+    const el = document.getElementById(field);
+    if (saved && el) el.value = saved;
+  });
 }
 
 function clearAddForm() {
-    const fields = ["id", "name", "age", "department", "salary"];
-    fields.forEach(field => {
-        // Remove from Storage
-        sessionStorage.removeItem("add_" + field);
-        // Remove from UI
-        const el = document.getElementById(field);
-        if (el) el.value = "";
-    });
-    // Reset position helper
-    const pos = document.getElementById("pos");
-    if(pos) pos.value = -1;
+  ["id", "name", "age", "department", "salary"].forEach((field) => {
+    sessionStorage.removeItem("add_" + field);
+    const el = document.getElementById(field);
+    if (el) el.value = "";
+  });
+  const pos = document.getElementById("pos");
+  if (pos) pos.value = -1;
 }
 
-// --- 3. NAVBAR LOADER ---
+// --- NAVBAR LOADER ---
 async function loadNavbar() {
   try {
     const response = await fetch("../components/navbar.html");
+    if(!response.ok) return;
     const data = await response.text();
     const container = document.getElementById("navbar-container");
-    if (container) {
-      container.outerHTML = data;
-      const navLinks = document.querySelectorAll(".nav-link");
-      const currentFile = window.location.pathname.split("/").pop();
-      navLinks.forEach((link) => {
-        const href = link.getAttribute("href");
-        if (href && href !== "#") {
-          const separator = href.includes("?") ? "&" : "?";
-          link.setAttribute("href", `${href}${separator}table_id=${TABLE_ID}`);
-        }
-        if (href && href.includes(currentFile)) {
-            link.classList.add("active");
-            link.style.fontWeight = "bold";
-        }
-      });
-    }
-  } catch (error) {
-    console.error("Navbar Error", error);
-  }
+    
+    // Inject and Highlight Active Link
+    container.outerHTML = data;
+    const currentFile = window.location.pathname.split("/").pop();
+    document.querySelectorAll(".nav-link").forEach((link) => {
+      const href = link.getAttribute("href");
+      if (href && href !== "#") {
+         const separator = href.includes("?") ? "&" : "?";
+         link.setAttribute("href", `${href}${separator}table_id=${TABLE_ID}`);
+      }
+      if (href && href.includes(currentFile)) {
+         link.classList.add("active");
+         link.style.fontWeight = "bold";
+      }
+    });
+  } catch (error) { console.error("Navbar Error", error); }
 }
 
-// --- 4. DATA OPERATIONS ---
+// --- DATA OPERATIONS ---
 
 // --- ADD DATA ---
-async function addData(e) {
-  if(e) { e.preventDefault(); e.stopPropagation(); }
-  
+async function addData() {
   const btn = document.getElementById("addBtn");
+  
+  // Collect Values
   const pos = document.getElementById("pos").value;
   const name = document.getElementById("name").value;
   const id = document.getElementById("id").value;
@@ -161,9 +169,7 @@ async function addData(e) {
   const dept = document.getElementById("department").value;
   const salary = document.getElementById("salary").value;
 
-  if (!id || !name || !age || !dept || !salary) {
-    return alert("Please fill in all fields.");
-  }
+  if (!id || !name || !age || !dept || !salary) return alert("Please fill in all fields.");
 
   btn.innerText = "Adding...";
   btn.disabled = true;
@@ -171,39 +177,21 @@ async function addData(e) {
   const payload = {
     table_id: TABLE_ID,
     position: parseInt(pos) || -1,
-    data: {
-      id: parseInt(id),
-      name: name,
-      age: parseInt(age),
-      department: dept,
-      salary: parseInt(salary),
-    },
+    data: { id: parseInt(id), name, age: parseInt(age), department: dept, salary: parseInt(salary) },
   };
 
   try {
     const response = await Api.insert(payload);
-    
-    if (response.status === 401) {
-        alert("Session Expired");
-        Auth.logout();
-        return;
-    }
-
+    // http.js handles 401 checks automatically
     if (response.ok) {
       alert(`Success! Employee ${name} added.`);
-      // Clear data on success
       clearAddForm();
     } else {
       const err = await response.json();
       alert("Error: " + (err.message || "Insert Failed"));
     }
-  } catch (error) {
-    console.error(error);
-    alert("Network Error");
-  } finally {
-    btn.innerText = "Add";
-    btn.disabled = false;
-  }
+  } catch (error) { console.error(error); alert("Network Error"); } 
+  finally { btn.innerText = "Add"; btn.disabled = false; }
 }
 
 // --- UPDATE DATA ---
@@ -215,81 +203,61 @@ async function loadEmployeeForUpdate(id) {
       window.location.href = `table_view.html?table_id=${TABLE_ID}`;
       return;
     }
-    
-    const elOriginalId = document.getElementById("originalId");
-    const elId = document.getElementById("id");
-    const elPos = document.getElementById("pos");
-
-    if (elOriginalId && elId) {
-        elOriginalId.value = data.id;
-        elId.value = data.id;
-        document.getElementById("name").value = data.name;
-        document.getElementById("age").value = data.age;
-        document.getElementById("department").value = data.department;
-        document.getElementById("salary").value = data.salary;
-        if (elPos) elPos.value = params.get("pos") || -1;
-    }
+    // Auto-fill form
+    document.getElementById("originalId").value = data.id;
+    document.getElementById("id").value = data.id;
+    document.getElementById("name").value = data.name;
+    document.getElementById("age").value = data.age;
+    document.getElementById("department").value = data.department;
+    document.getElementById("salary").value = data.salary;
+    document.getElementById("pos").value = params.get("pos") || -1;
   } catch (error) { console.error(error); }
 }
 
-async function performUpdate(e) {
-  if (e) { e.preventDefault(); e.stopPropagation(); }
-
+async function performUpdate() {
   const btn = document.getElementById("updateBtn");
-  const originalId = document.getElementById("originalId").value;
-  const newPos = document.getElementById("pos").value;
-  const newId = document.getElementById("id").value;
-  const newName = document.getElementById("name").value;
-  const newAge = document.getElementById("age").value;
-  const newDept = document.getElementById("department").value;
-  const newSalary = document.getElementById("salary").value;
-
   if (!confirm("Overwrite this record?")) return;
 
-  if (btn) { btn.innerText = "Processing..."; btn.disabled = true; }
+  btn.innerText = "Processing...";
+  btn.disabled = true;
 
+  // Minimized Payload Construction (No redundant variables)
   const payload = {
     table_id: TABLE_ID,
-    original_id: parseInt(originalId),
-    position: parseInt(newPos),
-    data: {
-      id: parseInt(newId),
-      name: newName,
-      age: parseInt(newAge),
-      department: newDept,
-      salary: parseInt(newSalary)
-    }
+    original_id: parseInt(document.getElementById("originalId").value),
+    position: parseInt(document.getElementById("pos").value),
+    data: { 
+        id: parseInt(document.getElementById("id").value), 
+        name: document.getElementById("name").value, 
+        age: parseInt(document.getElementById("age").value), 
+        department: document.getElementById("department").value, 
+        salary: parseInt(document.getElementById("salary").value) 
+    },
   };
 
   try {
     const response = await Api.update(payload);
-
-    if (response.status === 401) {
-       alert("Session expired.");
-       Auth.logout();
-       return;
-    }
-
     if (response.ok) {
-        window.location.replace(`table_view.html?table_id=${TABLE_ID}&action=updated`);
+      window.location.replace(`table_view.html?table_id=${TABLE_ID}&action=updated`);
     } else {
-        const err = await response.json();
-        alert("Update Failed: " + (err.message || "Unknown error"));
-        if (btn) { btn.innerText = "Update"; btn.disabled = false; }
+      const err = await response.json();
+      alert("Update Failed: " + (err.message || "Unknown error"));
+      btn.innerText = "Update"; btn.disabled = false;
     }
   } catch (error) {
-    console.error(error);
-    alert("Network Error");
-    if (btn) { btn.innerText = "Update"; btn.disabled = false; }
+    console.error(error); alert("Network Error");
+    btn.innerText = "Update"; btn.disabled = false;
   }
 }
 
 // --- TABLE FUNCTIONS ---
-window.loadStandardTable = async function() {
+window.loadStandardTable = async function () {
   try {
+    // 1. Fetch & Parse (Handled by Api + http.js)
     const data = await Api.getAll(TABLE_ID);
+    // 2. Render
     renderTable(data);
-  } catch (error) { console.error(error); }
+  } catch (error) { console.error("Load Table Error:", error); }
 };
 
 window.searchData = async function () {
@@ -305,12 +273,13 @@ window.deleteEmp = async function (id) {
   if (!confirm("Delete ID " + id + "?")) return;
   try {
     const response = await Api.delete(id, TABLE_ID);
+    // If recursive view is active, reload it. Otherwise, reload standard table.
     if (response.ok) isRecursiveView ? window.recursiveReverse() : window.loadStandardTable();
   } catch (error) { console.error(error); }
 };
 
 window.linkedReverse = async function () {
-  isRecursiveView = false;
+  isRecursiveView = false; // Reset toggle
   try {
     const response = await Api.reverse(TABLE_ID);
     if (response.ok) window.loadStandardTable();
@@ -318,31 +287,41 @@ window.linkedReverse = async function () {
 };
 
 window.recursiveReverse = async function () {
-  isRecursiveView = !isRecursiveView;
+  isRecursiveView = !isRecursiveView; // Toggle State
+  
+  // Toggle UI Arrows
   document.getElementById("arrow_up")?.classList.toggle("d-none", !isRecursiveView);
   document.getElementById("arrow_down")?.classList.toggle("d-none", isRecursiveView);
+
   if (!isRecursiveView) return window.loadStandardTable();
+  
   try {
     const data = await Api.recursiveReverse(TABLE_ID);
     renderTable(data);
-  } catch (error) { isRecursiveView = false; window.loadStandardTable(); }
+  } catch (error) { 
+    isRecursiveView = false; 
+    window.loadStandardTable(); 
+  }
 };
 
 window.downloadTable = async function () {
   try {
+    // Manual Fetch required for Blobs (bypassing http.js JSON parsing)
     const response = await fetch(Api.getDownloadUrl(TABLE_ID), {
       headers: { Authorization: `Bearer ${Auth.getToken()}` },
     });
+    
+    // Manual Security Check required here
+    if (response.status === 401) { Auth.logout(); return; }
     if (!response.ok) return alert("Download Failed");
+    
+    // Create Download Link
     const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = `table_${TABLE_ID}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.URL.revokeObjectURL(url);
+    document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
   } catch (e) { console.error(e); }
 };
 
@@ -351,6 +330,7 @@ window.uploadCsv = () => document.getElementById("hiddenFileInput").click();
 window.send_file_to_backend = async function () {
   const file = document.getElementById("hiddenFileInput").files[0];
   if (!file) return;
+  
   const reader = new FileReader();
   reader.onload = async function (e) {
     try {
@@ -360,7 +340,7 @@ window.send_file_to_backend = async function () {
         alert(`Added: ${res.added}, Skipped: ${res.skipped}`);
         window.loadStandardTable();
       } else alert("Upload Failed");
-    } catch (e) { console.error(e); }
+    } catch (err) { console.error(err); }
   };
   reader.readAsText(file);
 };
@@ -377,13 +357,17 @@ function renderTable(data) {
   const tbody = document.getElementById("tableBody");
   if (!tbody) return;
   tbody.innerHTML = "";
+  
   if (!data || data.length === 0) {
     tbody.innerHTML = "<tr><td colspan='7' class='text-center'>No Data Found</td></tr>";
     return;
   }
+  
   const list = Array.isArray(data) ? data : [data];
   list.forEach((emp, index) => {
+    // Dynamic SN calculation based on View Mode
     let sn = isRecursiveView ? list.length - index : index + 1;
+    
     const row = `<tr>
             <td>${sn}</td>
             <td>${emp.name}</td>
