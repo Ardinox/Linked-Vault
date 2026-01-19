@@ -20,41 +20,42 @@ app.use(cors());
 // This prevents the proxy stream from being consumed for C Backend requests.
 const jsonParser = express.json();
 
-// --- 2. SPY LOGGER MIDDLEWARE ---
-app.use((req, res, next) => {
-  const monitoredMethods = ["POST", "PUT", "DELETE"];
+const ACTION_MAP = [
+  // AUTH
+  { method: "POST", path: "/login", action: "LOGIN" },
 
-  if (monitoredMethods.includes(req.method)) {
-    const logDir = path.join(__dirname, "logs");
-    const logFile = path.join(logDir, "admin_history.json");
+  // EMPLOYEE SERVICE
+  { method: "POST", path: "/insert", action: "INSERT_EMPLOYEE" },
+  { method: "PUT", path: "/update", action: "UPDATE_EMPLOYEE" },
+  { method: "DELETE", path: "/delete", action: "DELETE_EMPLOYEE" },
 
-    if (!fs.existsSync(logDir)) {
-      fs.mkdirSync(logDir);
-    }
+  // BULK / SPECIAL
+  { method: "POST", path: "/upload_csv", action: "BULK_INSERT" },
+  { method: "DELETE", path: "/clear_table", action: "CLEAR_TABLE" },
 
-    const logEntry = {
-      timestamp: new Date().toISOString(),
-      method: req.method,
-      endpoint: req.originalUrl,
-    };
+  // For Reverse
+  { method: "PUT", path: "/linkedreverse", action: "REVERSE_LIST" },
+];
 
-    let history = [];
-    try {
-      if (fs.existsSync(logFile)) {
-        const data = fs.readFileSync(logFile);
-        history = JSON.parse(data);
-      }
-    } catch (err) {
-      console.error("Error reading log file:", err);
-    }
+const matchPath = (pattern, actual) => {
+  const p = pattern.split("/");
+  const a = actual.split("/");
 
-    history.push(logEntry);
-    fs.writeFileSync(logFile, JSON.stringify(history, null, 2));
+  if (p.length !== a.length) return false;
 
-    console.log(`[LOGGED] ${req.method} request to ${req.originalUrl}`);
-  }
-  next();
-});
+  return p.every((seg, i) => seg.startsWith(":") || seg === a[i]);
+};
+
+const getActionName = (req) => {
+  const route = ACTION_MAP.find(
+    r =>
+      r.method === req.method &&
+      matchPath(r.path, req.path)
+  );
+
+  return route ? route.action : null;
+};
+
 
 // --- Auth Route (Uses JSON Parser) ---
 app.post("/login", jsonParser, (req, res) => {
@@ -94,6 +95,39 @@ const authenticateToken = (req, res, next) => {
 
 app.use(authenticateToken);
 
+// --- SPY LOGGER MIDDLEWARE ---
+app.use((req, res, next) => {
+  const action = getActionName(req);
+  if (!action) return next();
+
+  res.on("finish", () => {
+    if (res.statusCode >= 400) return;
+
+    const logDir = path.join(__dirname, "logs");
+    const logFile = path.join(logDir, "admin_history.json");
+
+    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir);
+
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      action,
+      username: req.user?.username || "anonymous",
+    };
+
+    let history = [];
+    if (fs.existsSync(logFile)) {
+      history = JSON.parse(fs.readFileSync(logFile));
+    }
+
+    history.push(logEntry);
+    fs.writeFileSync(logFile, JSON.stringify(history, null, 2));
+
+    console.log(`[AUDIT] ${logEntry.username} → ${action}`);
+  });
+
+  next();
+});
+
 // --- ADMIN API ENDPOINTS ---
 app.get("/api/history", (req, res) => {
   const logFile = path.join(__dirname, "logs", "admin_history.json");
@@ -112,7 +146,6 @@ app.get("/api/history", (req, res) => {
 });
 
 // --- USER TABLE MANAGEMENT (Uses JSON Parser) ---
-
 app.get('/my_tables', (req, res) => {
     const username = req.user.username; 
     const tableFile = path.join(__dirname, 'logs', 'user_tables.json');

@@ -1,12 +1,12 @@
 import { http } from "./http.js";
 
 // Make sure this matches your Gateway URL
-const BASE = "http://localhost:4000/api"; 
+const BASE = "http://localhost:4000"; 
 
 export const Api = {
   // --- GET DATA ---
   async getAll(tableId) {
-    const res = await http(`${BASE}/display?table_id=${tableId}`);
+    const res = await http(`${BASE}/show?table_id=${tableId}`);
     return res.ok ? await res.json() : [];
   },
 

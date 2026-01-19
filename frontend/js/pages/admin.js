@@ -2,6 +2,37 @@ import { Auth } from '../modules/auth.js';
 import { Api } from '../modules/api.js';
 import { CONFIG } from '../modules/config.js';
 
+// --- Helper ---
+const ACTION_LABELS = {
+    LOGIN: "Logged In",
+    INSERT_EMPLOYEE: "Inserted Employee",
+    UPDATE_EMPLOYEE: "Updated Employee",
+    DELETE_EMPLOYEE: "Deleted Employee",
+    BULK_INSERT: "Bulk Employee Import",
+    CLEAR_TABLE: "Cleared an Employee Table",
+    REVERSE_LIST: "Reversed Employee List"
+};
+
+const ACTION_COLORS = {
+    LOGIN: "text-info",
+    INSERT_EMPLOYEE: "text-success",
+    UPDATE_EMPLOYEE: "text-warning",
+    DELETE_EMPLOYEE: "text-danger",
+    BULK_INSERT: "text-success",
+    CLEAR_TABLE: "text-danger",
+    REVERSE_LIST: "text-secondary"
+};
+
+const formatAction = (action) =>
+    ACTION_LABELS[action] || action.replace(/_/g, " ");
+
+const formatTime = (iso) =>
+    new Date(iso).toLocaleString("en-IN", {
+        dateStyle: "medium",
+        timeStyle: "short"
+    });
+
+
 // 1. Session Check
 Auth.checkSession();
 
@@ -104,29 +135,34 @@ async function loadAuditLogs() {
         const response = await fetch(`${CONFIG.API_URL}/api/history`, {
             headers: { 'Authorization': `Bearer ${Auth.getToken()}` }
         });
-        const logs = await response.json();
 
+        const logs = await response.json();
         tbody.innerHTML = "";
-        
-        if (logs.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3" class="text-center">No logs found.</td></tr>';
+
+        if (!logs || logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center">No activity recorded.</td></tr>';
             return;
         }
 
         logs.forEach(log => {
-            const colorClass = log.method === 'DELETE' ? 'text-danger' : 
-                               log.method === 'POST' ? 'text-success' : 'text-warning';
-            
-            const row = `<tr>
-                <td>${new Date(log.timestamp).toLocaleString()}</td>
-                <td class="fw-bold ${colorClass}">${log.method}</td>
-                <td><small>${log.endpoint}</small></td>
-            </tr>`;
+            const color = ACTION_COLORS[log.action] || "text-secondary";
+
+            const row = `
+                <tr>
+                    <td>${formatTime(log.timestamp)}</td>
+                    <td>${log.username}</td>
+                    <td class="fw-bold ${color}">
+                        ${formatAction(log.action)}
+                    </td>
+                </tr>
+            `;
+
             tbody.innerHTML += row;
         });
 
     } catch (error) {
         console.error(error);
-        tbody.innerHTML = '<tr><td colspan="3" class="text-danger">Error loading logs</td></tr>';
+        tbody.innerHTML =
+            '<tr><td colspan="3" class="text-danger text-center">Failed to load logs</td></tr>';
     }
 }
