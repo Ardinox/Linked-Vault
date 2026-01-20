@@ -97,7 +97,9 @@ dkms.conf
 
 # Backend Data Binaries
 # Ignore everything in bin/ but keep the folder
-backend/bin/*
-!backend/bin/.gitkeep
+backend/bin/users/*
+backend/bin/tables/*
+!backend/bin/users/.gitkeep
+!backend/bin/tables/.gitkeep
 # Also ignore loose bin files if any
 *.bin

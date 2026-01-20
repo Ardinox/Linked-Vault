@@ -8,11 +8,19 @@
 #include "mongoose.h"
 #include "cJSON.h"
 
-// --- DECLARATION OF TBLE FUNCTION ---
+// --- DECLARATION OF AUTH FUNCTION ---
+void handle_get_user(struct mg_connection *c, struct mg_http_message *hm);
+
+void handle_registry(struct mg_connection *c, struct mg_http_message *hm);
+
+// --- DECLARATION OF TABLE FUNCTION ---
+void handle_create_table(struct mg_connection *c, struct mg_http_message *hm);
+
+void handle_list_table(struct mg_connection *c, struct mg_http_message *hm);
+
 void handle_get_tables(struct mg_connection *c, struct mg_http_message *hm);
 
 // --- DECLARATION FOR CORE SERVER FUNCTIONS ---
-
 // --- 1. Insertion ---
 void handle_insertion(struct mg_connection *c, struct mg_http_message *hm);
 

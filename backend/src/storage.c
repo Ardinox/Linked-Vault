@@ -1,5 +1,17 @@
+// File_Name storage.c
+// Handles the binary database logics
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <pthread.h>
+
 #include "employee.h"
 #include "storage.h"
+#include "table.h"
+
+// Protects users.bin and tables_registry.bin operations (exists in main.c)
+extern pthread_mutex_t file_registry_lock;
 
 // --- Helper Functions ---
 EmployeeRecord node_to_record(emp *node)
@@ -41,6 +53,7 @@ emp *record_to_node(EmployeeRecord record)
     return new_node;
 }
 
+// --- TABLE FUNCTIONS ---
 void save_table_binary(Table *t)
 {
     if (t == NULL)
@@ -49,15 +62,21 @@ void save_table_binary(Table *t)
     }
 
     // 1. Generate filename based on Table ID
-    char filename[60];
-    snprintf(filename, sizeof(filename), "bin/%s.bin", t->table_id);
+    char filename[100];
+    snprintf(filename, sizeof(filename), "bin/tables/%s.bin", t->id);
 
     // 2. Open file for Writing Binary ("wb")
     FILE *fp = fopen(filename, "wb");
     if (fp == NULL)
     {
-        perror("Failed to open file for writing");
-        return;
+        // Try creating the folder if it fails (system command)
+        system("mkdir -p bin/tables");
+        fp = fopen(filename, "wb");
+        if (fp == NULL)
+        {
+            perror("Failed to open file for writing");
+            return;
+        }
     }
     // 3. Traverse the list and write records
     emp *current = t->employeelist.head;
@@ -68,15 +87,15 @@ void save_table_binary(Table *t)
         current = current->next;
     }
     fclose(fp);
-    printf("Table '%s' saved to disk.\n", t->table_id);
+    printf("Table '%s' saved to disk.\n", t->id);
 }
 
 // Loads data from a binary file into the table's linked list
 void load_table_binary(Table *t)
 {
     // 1. Generate filename
-    char filename[60];
-    snprintf(filename, sizeof(filename), "bin/%s.bin", t->table_id);
+    char filename[100];
+    snprintf(filename, sizeof(filename), "bin/tables/%s.bin", t->id);
 
     // 2. Open file for Reading Binary ("rb")
     FILE *fp = fopen(filename, "rb");
@@ -103,4 +122,146 @@ void load_table_binary(Table *t)
         }
     }
     fclose(fp);
+}
+
+// --- USER FUNCTIONS ---
+User find_user_by_name(const char* username){
+    FILE *fp = fopen("bin/users/users.bin", "rb");
+    User user;
+    User not_found = {-1, "", ""};
+    if (!fp) return not_found;
+
+    while (fread(&user, sizeof(User), 1, fp)) {
+        if (strcmp(user.username, username) == 0) {
+            fclose(fp);
+            return user;
+        }
+    }
+    fclose(fp);
+    return not_found;
+}
+
+int save_new_user(const char* username, const char *hash){
+
+    pthread_mutex_lock(&file_registry_lock);
+
+    // A. Check for Duplicates
+    User check = find_user_by_name(username);
+    if (check.id != -1) {
+        pthread_mutex_unlock(&file_registry_lock);
+        return -1;
+    }
+
+    // B. Auto-Increment ID
+    int max_id = 0;
+    FILE *fp_read = fopen("bin/users/users.bin", "rb");
+    if (fp_read) {
+        User temp;
+        while (fread(&temp, sizeof(User), 1, fp_read)) {
+            if (temp.id > max_id) max_id = temp.id;
+        }
+        fclose(fp_read);
+    }
+
+    // C. Write New User
+    // Ensure folder exists
+    FILE *fp_write = fopen("bin/users/users.bin", "ab");
+    if (!fp_write) {
+        system("mkdir -p bin/users"); // Helper to create folder if missing
+        fp_write = fopen("bin/users/users.bin", "ab");
+        if(!fp_write) {
+            pthread_mutex_unlock(&file_registry_lock);
+            return -2;
+        }
+    }
+
+    User new_user;
+    new_user.id = max_id + 1;
+    strncpy(new_user.username, username, 49);
+    strncpy(new_user.password_hash, hash, 127);
+
+    fwrite(&new_user, sizeof(User), 1, fp_write);
+    fclose(fp_write);
+    
+    printf("[STORAGE] Created User: %s (ID: %d)\n", username, new_user.id);
+    pthread_mutex_unlock(&file_registry_lock);
+    return new_user.id;
+}
+
+// --- TABLE REGISTRY FUNCTIONS ---
+
+int save_table_metadata(int owner_id, const char* display_name) {
+    
+    pthread_mutex_lock(&file_registry_lock);
+    // A. Internal ID Logic
+    int max_id = 1000;
+    FILE *fp_read = fopen("bin/users/tables_registry.bin", "rb");
+    if (fp_read) {
+        TableMetadata temp;
+        while (fread(&temp, sizeof(TableMetadata), 1, fp_read)) {
+            if (temp.id > max_id) max_id = temp.id;
+        }
+        fclose(fp_read);
+    }
+
+    // B. Save Metadata
+    FILE *fp_write = fopen("bin/users/tables_registry.bin", "ab");
+    if (!fp_write) {
+        system("mkdir -p bin/users");
+        fp_write = fopen("bin/users/tables_registry.bin", "ab");
+        if(!fp_write) {
+             pthread_mutex_unlock(&file_registry_lock);
+             return -1;
+        }
+    }
+
+    TableMetadata meta;
+    meta.id = max_id + 1;
+    meta.owner_id = owner_id;
+    meta.is_active = 1;
+    strncpy(meta.table_name, display_name, 49);
+
+    fwrite(&meta, sizeof(TableMetadata), 1, fp_write);
+    fclose(fp_write);
+
+    printf("[STORAGE] Registered Table: '%s' (ID: %d) for User %d\n", 
+           display_name, meta.id, owner_id);
+           
+    pthread_mutex_unlock(&file_registry_lock);
+    return meta.id;
+}
+
+TableMetadata* get_user_tables(int user_id, int *count) {
+    *count = 0;
+    FILE *fp = fopen("bin/users/tables_registry.bin", "rb");
+    if (!fp) return NULL;
+
+    // A. Count
+    TableMetadata temp;
+    int matches = 0;
+    while (fread(&temp, sizeof(TableMetadata), 1, fp)) {
+        if (temp.owner_id == user_id && temp.is_active == 1) {
+            matches++;
+        }
+    }
+    
+    if (matches == 0) {
+        fclose(fp);
+        return NULL;
+    }
+
+    // B. Allocate & Fill
+    TableMetadata *list = (TableMetadata*)malloc(matches * sizeof(TableMetadata));
+    rewind(fp);
+
+    int index = 0;
+    while (fread(&temp, sizeof(TableMetadata), 1, fp)) {
+        if (temp.owner_id == user_id && temp.is_active == 1) {
+            list[index++] = temp;
+        }
+    }
+    fclose(fp);
+    
+    *count = matches;
+    return list;
 }

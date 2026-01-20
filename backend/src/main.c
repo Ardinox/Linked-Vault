@@ -4,6 +4,7 @@
 #include "handlers.h"
 #include "employee.h"
 #include "utils.h"
+#include "storage.h"
 
 // --- CONSTANTS ---
 // Listening on 0.0.0.0 allows access from external IPs, not just localhost.
@@ -11,6 +12,9 @@ static const char *LISTENING_ADDR = "http://0.0.0.0:8000";
 
 // The poll interval (1000ms) determines how long the call blocks if there are no events.
 static const int POLL_INTERVAL_MS = 1000;
+
+// Protects users.bin and tables_registry.bin operations
+pthread_mutex_t file_registry_lock = PTHREAD_MUTEX_INITIALIZER;
 
 // ---  EVENT HANDLER ---
 static void fn(struct mg_connection *c, int ev, void *ev_data)
@@ -34,9 +38,21 @@ static void fn(struct mg_connection *c, int ev, void *ev_data)
     }
 
     //  --- ROUTING LOGIC ---
-    if (mg_match(hm->uri, mg_str("/get_table"), NULL) && is_method(hm, "GET"))
+    if (mg_match(hm->uri, mg_str("/auth/get_user"), NULL) && is_method(hm, "POST"))
     {
-      handle_get_tables(c, hm);
+      handle_get_user(c, hm);
+    }
+    else if (mg_match(hm->uri, mg_str("/auth/register"), NULL) && is_method(hm, "POST"))
+    {
+      handle_registry(c, hm);
+    }
+    else if (mg_match(hm->uri, mg_str("/meta/create_table"), NULL) && is_method(hm, "POST"))
+    {
+      handle_create_table(c, hm);
+    }
+    else if (mg_match(hm->uri, mg_str("/meta/list_tables"), NULL) && is_method(hm, "POST"))
+    {
+      handle_list_table(c, hm);
     }
     else if (mg_match(hm->uri, mg_str("/insert"), NULL) && is_method(hm, "POST"))
     {
