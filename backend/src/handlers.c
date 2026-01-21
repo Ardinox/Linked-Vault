@@ -151,88 +151,65 @@ void handle_list_table(struct mg_connection *c, struct mg_http_message *hm)
 // --- 1. Handles insertion (Supports insertion at specific position) ---
 void handle_insertion(struct mg_connection *c, struct mg_http_message *hm)
 {
-  // Parse the incoming HTTP body into a JSON object
   cJSON *json = cJSON_ParseWithLength(hm->body.buf, hm->body.len);
-
-  // Safety Check for parsing
-  if (!json)
-  {
-    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
-                  "{ \"status\": \"Error\", \"message\": \"Invalid JSON\" }");
+  if (!json) {
+    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\n", "{ \"error\": \"Invalid JSON\" }");
     return;
   }
 
-  // --- Get Table Id ---
   cJSON *j_table_id = cJSON_GetObjectItem(json, "table_id");
   cJSON *j_owner_id = cJSON_GetObjectItem(json, "owner_id");
 
-  if (!j_table_id || !cJSON_IsNumber(j_table_id) || !j_owner_id || !cJSON_IsNumber(j_owner_id))
-  {
-    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"error\": \"Missing/Invalid table_id or owner_id\" }");
+  if (!j_table_id || !cJSON_IsNumber(j_table_id) || !j_owner_id || !cJSON_IsNumber(j_owner_id)) {
+
+    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\n", "{ \"error\": \"Missing/Invalid table_id or owner_id\" }");
     cJSON_Delete(json);
     return;
   }
 
-  // --- Get the Table Struct ---
+
   Table *t = get_or_load_table(j_table_id->valueint, j_owner_id->valueint);
-  if (!t)
-  {
-    mg_http_reply(c, 500, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"status\": \"Error\", \"message\": \"Table Creation Failed\" }");
+  if (!t) {
+    mg_http_reply(c, 403, "Access-Control-Allow-Origin: *\r\n", "{ \"error\": \"Access Denied\" }");
     cJSON_Delete(json);
     return;
   }
 
-  // Extract "position"
-  // Default to -1 (End of list) if not provided.
-  int position = -1;
-  cJSON *j_pos = cJSON_GetObjectItem(json, "position");
-  if (j_pos)
-    position = j_pos->valueint;
-
-  // Extract "data" object
   cJSON *j_data = cJSON_GetObjectItem(json, "data");
-
-  // Create the struct in heap memory
-  emp *insert = create_node_from_json(j_data);
-  if (insert == NULL)
-  {
-    mg_http_reply(c, 500, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
-                  "{ \"status\": \"Error\", \"message\": \"Server Out of Memory\" }");
-    cJSON_Delete(json);
-    return;
-  }
-
-  // lock using Mutex lock
+  
   pthread_mutex_lock(&t->lock);
 
-  // validate Inputs
   const char *error_msg = validate_employee_json(j_data, t);
   if (error_msg != NULL)
   {
     pthread_mutex_unlock(&t->lock);
-    free(insert);
-
-    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
-                  "{ \"status\": \"Error\", \"message\": \"%s\" }", error_msg);
+    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\n", "{ \"error\": \"%s\" }", error_msg);
     cJSON_Delete(json);
     return;
   }
 
-  // inserting the list
+  emp *insert = create_node_from_json(j_data);
+  if (insert == NULL)
+  {
+    pthread_mutex_unlock(&t->lock);
+    mg_http_reply(c, 500, "Access-Control-Allow-Origin: *\r\n", "{ \"error\": \"Memory Error\" }");
+    cJSON_Delete(json);
+    return;
+  }
+
+  int position = -1;
+  cJSON *j_pos = cJSON_GetObjectItem(json, "position");
+  if (j_pos) position = j_pos->valueint;
+
   insert_node_at_pos(t, insert, position);
 
-  // Now that the list is modified, save it immediately
   save_table_binary(t);
-
-  // Unlock after insertion completion
+  
   pthread_mutex_unlock(&t->lock);
 
-  // Sending the json response for successful insertion
   mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
-                "{ \"status\": \"success\", \"message\": \"Inserted at pos %d\", \"id\": %d }",
-                position, insert->id);
+                "{ \"status\": \"success\", \"id\": %d }", insert->id);
 
-  // Deleting the json to clear memory
   cJSON_Delete(json);
 }
 

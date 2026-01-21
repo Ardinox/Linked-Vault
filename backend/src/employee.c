@@ -15,6 +15,8 @@ void init_employee_list(EmployeeList *list)
 // --- Create Node from JSON ---
 emp *create_node_from_json(cJSON *json)
 {
+  if (!json) return NULL; // Safety check
+
   // Alloting Memory space for new node
   emp *new_node = (emp *)calloc(1, sizeof(emp));
   if (!new_node)
@@ -27,29 +29,30 @@ emp *create_node_from_json(cJSON *json)
   cJSON *j_dept = cJSON_GetObjectItem(json, "department");
   cJSON *j_salary = cJSON_GetObjectItem(json, "salary");
 
-  // Assigning values to the nodes's data field
-  if (j_id)
-  {
+  // Assigning values (Safely!)
+  // We use 'valueint' for numbers and check 'valuestring' for strings
+  if (j_id) {
     new_node->id = j_id->valueint;
   }
-  if (j_name)
-  {
+  
+  if (j_name && j_name->valuestring) { // Check valuestring is not NULL
     strncpy(new_node->name, j_name->valuestring, 49);
+    new_node->name[49] = '\0'; // Ensure null-termination
   }
-  if (j_age)
-  {
+  
+  if (j_age) {
     new_node->age = j_age->valueint;
   }
-  if (j_dept)
-  {
+  
+  if (j_dept && j_dept->valuestring) { // Check valuestring is not NULL
     strncpy(new_node->department, j_dept->valuestring, 49);
+    new_node->department[49] = '\0';
   }
-  if (j_salary)
-  {
+  
+  if (j_salary) {
     new_node->salary = j_salary->valueint;
   }
 
-  // Assigning values to the nodes's link field (as NULL)
   new_node->next = NULL;
   return new_node;
 }

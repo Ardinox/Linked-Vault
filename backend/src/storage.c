@@ -63,7 +63,7 @@ void save_table_binary(Table *t)
 
     // 1. Generate filename based on Table ID
     char filename[100];
-    snprintf(filename, sizeof(filename), "bin/tables/%s.bin", t->id);
+    snprintf(filename, sizeof(filename), "bin/tables/%d.bin", t->id);
 
     // 2. Open file for Writing Binary ("wb")
     FILE *fp = fopen(filename, "wb");
@@ -87,7 +87,7 @@ void save_table_binary(Table *t)
         current = current->next;
     }
     fclose(fp);
-    printf("Table '%s' saved to disk.\n", t->id);
+    printf("Table '%d' saved to disk.\n", t->id);
 }
 
 // Loads data from a binary file into the table's linked list
@@ -95,7 +95,7 @@ void load_table_binary(Table *t)
 {
     // 1. Generate filename
     char filename[100];
-    snprintf(filename, sizeof(filename), "bin/tables/%s.bin", t->id);
+    snprintf(filename, sizeof(filename), "bin/tables/%d.bin", t->id);
 
     // 2. Open file for Reading Binary ("rb")
     FILE *fp = fopen(filename, "rb");
@@ -264,4 +264,20 @@ TableMetadata* get_user_tables(int user_id, int *count) {
     
     *count = matches;
     return list;
+}
+
+int is_table_owner(int user_id, int table_id) {
+    FILE *fp = fopen("bin/users/tables_registry.bin", "rb");
+    if (!fp) return 0;
+
+    TableMetadata temp;
+    int found = 0;
+    while (fread(&temp, sizeof(TableMetadata), 1, fp)) {
+        if (temp.id == table_id && temp.owner_id == user_id && temp.is_active == 1) {
+            found = 1;
+            break;
+        }
+    }
+    fclose(fp);
+    return found;
 }

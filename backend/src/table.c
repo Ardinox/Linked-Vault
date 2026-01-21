@@ -1,95 +1,88 @@
-// File_Name table.c
-// Manages the Runtime Linked List of Tables
-
+// File_Name table.c (DEEP DEBUG VERSION)
 #include "table.h"
 #include "storage.h"
 
-// 1. Global Head of the "List of Lists" (The Tables currently in RAM)
+// 1. Global Head of the "List of Lists"
 Table *global_tables_head = NULL;
 
-// 2. Global Lock (Protects the list of tables itself)
+// 2. Global Lock
 pthread_mutex_t global_list_lock = PTHREAD_MUTEX_INITIALIZER;
 
-// Find a table in RAM, or load it from disk if valid
 Table* get_or_load_table(int table_id, int owner_id){
+    printf("[TABLE-DEBUG] 1. Entering get_or_load_table(ID: %d, Owner: %d)\n", table_id, owner_id);
     
     // --- STEP A: Thread Safety ---
-    pthread_mutex_lock(&global_list_lock);
+    printf("[TABLE-DEBUG] 2. Locking global mutex...\n");
+    int lock_res = pthread_mutex_lock(&global_list_lock);
+    printf("[TABLE-DEBUG] 3. Mutex lock result: %d\n", lock_res);
 
-    // --- STEP B: Search for existing table in RAM ---
+    // --- STEP B: Search RAM ---
+    printf("[TABLE-DEBUG] 4. Searching RAM list...\n");
     Table *current = global_tables_head;
     while(current != NULL){
         if(current->id == table_id){
-            // SECURITY CHECK: Does this loaded table belong to the requester?
             if (current->owner_id == owner_id) {
+                printf("[TABLE-DEBUG] Found in RAM. Unlocking.\n");
                 pthread_mutex_unlock(&global_list_lock);
                 return current;
             } else {
-                // Table exists but belongs to someone else!
+                printf("[TABLE-DEBUG] Security mismatch. Unlocking.\n");
                 pthread_mutex_unlock(&global_list_lock);
-                printf("[SECURITY] User %d tried to access Table %d owned by %d\n", owner_id, table_id, current->owner_id);
                 return NULL; 
             }
         }
         current = current->next;
     }
 
-    // --- STEP C: Load/Create the Table Structure ---
-    // If we are here, the table is not in RAM. 
-    // We trust the caller (handler.c) has already verified the ID exists in the DB via is_table_owner()
-    
+    // --- STEP C: Create New ---
+    printf("[TABLE-DEBUG] 5. Not in RAM. Allocating memory...\n");
     Table *new_table = (Table*)malloc(sizeof(Table));
     if(!new_table){
-        printf("Failed to allocate memory for table\n");
+        printf("[TABLE-DEBUG] CRITICAL: Malloc failed.\n");
         pthread_mutex_unlock(&global_list_lock);
         return NULL;
     }
 
-    // 1. Set Identifiers
     new_table->id = table_id;
     new_table->owner_id = owner_id;
-    // (Optional: You could load the display_name from DB here if needed for UI)
 
-    // 2. Init the specific lock for THIS table
+    printf("[TABLE-DEBUG] 6. Initializing Table Lock...\n");
     if (pthread_mutex_init(&new_table->lock, NULL) != 0) {
-        printf("Failed to init mutex for table %d\n", table_id);
+        printf("[TABLE-DEBUG] CRITICAL: Table lock init failed.\n");
         free(new_table);
         pthread_mutex_unlock(&global_list_lock);
         return NULL;
     }
 
-    // 3. Init the empty employee list pointers
+    printf("[TABLE-DEBUG] 7. Initializing List...\n");
     init_employee_list(&new_table->employeelist);
 
-    // 4. Load actual data from disk
-    // This function (in storage.c) uses the integer ID to find the file (e.g. "bin/tables/1001.bin")
+    printf("[TABLE-DEBUG] 8. Loading from Binary...\n");
     load_table_binary(new_table);
 
-    // 5. Link to global list
+    printf("[TABLE-DEBUG] 9. Linking to global list...\n");
     new_table->next = global_tables_head;
     global_tables_head = new_table;
 
+    printf("[TABLE-DEBUG] 10. Unlocking global mutex...\n");
     pthread_mutex_unlock(&global_list_lock);
+    
+    printf("[TABLE-DEBUG] 11. Returning new table.\n");
     return new_table;
 }
 
-// Optional: Helper to unload a table (if you ever implement memory management)
 void unload_table(int table_id) {
     pthread_mutex_lock(&global_list_lock);
-    
     Table *curr = global_tables_head;
     Table *prev = NULL;
-
     while (curr != NULL) {
         if (curr->id == table_id) {
-            if (prev == NULL) {
-                global_tables_head = curr->next;
-            } else {
-                prev->next = curr->next;
-            }
+            if (prev == NULL) global_tables_head = curr->next;
+            else prev->next = curr->next;
             
-            // Free the table resources
-            // (Note: You would also need to free the employee nodes here to avoid leaks)
+            // Cleanup
+            emp *e_curr = curr->employeelist.head;
+            while(e_curr) { emp *n = e_curr->next; free(e_curr); e_curr = n; }
             pthread_mutex_destroy(&curr->lock);
             free(curr);
             break;
@@ -97,6 +90,5 @@ void unload_table(int table_id) {
         prev = curr;
         curr = curr->next;
     }
-
     pthread_mutex_unlock(&global_list_lock);
 }
