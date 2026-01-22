@@ -14,18 +14,29 @@ const C_BACKEND = process.env.BACKEND_URL || "http://localhost:8000";
 // --- MIDDLEWARE ---
 app.use(cors());
 app.use(express.json()); // PARSE EVERYTHING (We are no longer streaming blindly)
+app.use(express.text({ limit: '50mb' }));
 
 // --- HELPER: Centralized C-Backend Caller ---
 // This function adds the 'owner_id' automatically to every request
 async function callC(method, endpoint, payload = {}, params = {}, tokenData = null) {
     try {
-        // 1. Inject owner_id if user is logged in
+        // --- DEBUG LOGS (Add these lines) ---
+        console.log("--------------------------------");
+        console.log(`[GATEWAY] Request to: ${endpoint}`);
+        console.log(`[GATEWAY] User Data (Token):`, tokenData); // Is this null?
+        
         if (tokenData) {
-            payload.owner_id = tokenData.id; // For POST/PUT bodies
-            params.owner_id = tokenData.id;  // For GET/DELETE query strings
+            payload.owner_id = tokenData.id; 
+            params.owner_id = tokenData.id;
+            console.log(`[GATEWAY] Injected Owner ID: ${tokenData.id}`);
+        } else {
+            console.log(`[GATEWAY] WARNING: No Token Data found!`);
         }
+        
+        console.log(`[GATEWAY] Final Payload sending to C:`, JSON.stringify(payload));
+        console.log("--------------------------------");
+        // ------------------------------------
 
-        // 2. Make the Request
         const response = await axios({
             method: method,
             url: `${C_BACKEND}${endpoint}`,
@@ -185,6 +196,13 @@ app.put("/linkedreverse", async (req, res) => {
 
 app.get("/recursivereverse", async (req, res) => {
     const result = await callC("GET", "/recursivereverse", {}, req.query, req.user);
+    res.status(result.status).json(result.data);
+});
+
+app.post("/upload_csv", async (req, res) => {
+    // req.body is now the raw CSV string because of express.text()
+    // We send it as 'payload', and we pass 'req.query'
+    const result = await callC("POST", "/upload_csv", req.body, req.query, req.user);
     res.status(result.status).json(result.data);
 });
 

@@ -1,34 +1,39 @@
 import { http } from "./http.js";
+import { CONFIG } from "./config.js";
 
 // Make sure this matches your Gateway URL
-const BASE = "http://localhost:4000"; 
+const BASE = CONFIG.API_URL; 
 
 export const Api = {
-  // --- GET DATA ---
+  // --- TABLE MANAGEMENT ---
+  async getTables() {
+    const res = await http(`${BASE}/list_tables`, {
+        method: "POST" 
+    });
+    return res.ok ? await res.json() : [];
+  },
+
+  async createTable(name) {
+    return await http(`${BASE}/my_tables`, {
+      method: "POST",
+      body: JSON.stringify({ name }), 
+    });
+  },
+
+  // --- READ DATA ---
   async getAll(tableId) {
     const res = await http(`${BASE}/show?table_id=${tableId}`);
     return res.ok ? await res.json() : [];
   },
 
-  async getTables() {
-    const res = await http(`${BASE}/my_tables`);
-    return res.ok ? await res.json() : [];
-  },
-
+  // --- Search Employee ID ---
   async search(id, tableId) {
     const res = await http(`${BASE}/search?id=${id}&table_id=${tableId}`);
     if (res.status === 404) return null;
     return res.ok ? await res.json() : null;
   },
 
-  // --- WRITE DATA ---
-  async createTable(tableName) {
-    return await http(`${BASE}/my_tables`, {
-      method: "POST",
-      body: JSON.stringify({ tableName }),
-    });
-  },
-
+  // --- Insert Employee Details ---
   async insert(payload) {
     return await http(`${BASE}/insert`, {
       method: "POST",
@@ -36,6 +41,7 @@ export const Api = {
     });
   },
 
+  // --- Update Employee Details ---
   async update(payload) {
     return await http(`${BASE}/update`, {
       method: "PUT",
@@ -43,6 +49,7 @@ export const Api = {
     });
   },
 
+  // --- Delete Employee Details ---
   async delete(id, tableId) {
     return await http(`${BASE}/delete?id=${id}&table_id=${tableId}`, {
       method: "DELETE",
@@ -69,6 +76,7 @@ export const Api = {
 
   // --- FILES ---
   getDownloadUrl(tableId) {
+    const token = localStorage.getItem('authToken');
     // we handle the token manually in the UI for downloads if needed.
     return `${BASE}/download_table?table_id=${tableId}`;
   },

@@ -1,7 +1,7 @@
 export const Auth = {
     getToken: () => localStorage.getItem('authToken'),
     
-    // The logic from "3. AUTH CHECK"
+    // Check if user is logged in
     checkSession: () => {
         const token = localStorage.getItem('authToken');
         if (!token) {
@@ -11,9 +11,11 @@ export const Auth = {
         return token;
     },
 
+    // Handles Logout
     logout: () => {
-        alert("Session Expired. Please login again.");
         localStorage.removeItem('authToken');
+        localStorage.removeItem('currentUser');
+        alert("You are Logged out!");
         window.location.href = '../views/login.html';
     }
 };

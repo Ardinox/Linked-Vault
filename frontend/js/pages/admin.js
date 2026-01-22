@@ -41,10 +41,12 @@ document.addEventListener('DOMContentLoaded', () => {
     loadTableList();
     
     // Attach Logout
-    document.getElementById('logoutBtn').addEventListener('click', Auth.logout);
+    const logoutBtn = document.getElementById('logoutBtn');
+    if(logoutBtn) logoutBtn.addEventListener('click', Auth.logout);
 
     // Attach Refresh Logs
-    document.getElementById('refreshLogsBtn').addEventListener('click', loadAuditLogs);
+    const refreshBtn = document.getElementById('refreshLogsBtn');
+    if(refreshBtn) refreshBtn.addEventListener('click', loadAuditLogs);
 });
 
 // --- VIEW SWITCHER ---
@@ -69,6 +71,7 @@ window.switchView = function(viewName, e) {
 // --- LOGIC: TABLES ---
 async function loadTableList() {
     const grid = document.getElementById('tableGrid');
+    if(!grid) return;
     grid.innerHTML = '<p class="text-white">Loading...</p>';
 
     try {
@@ -87,12 +90,12 @@ async function loadTableList() {
 
         // 2. Add Existing Tables
         if (tables && tables.length > 0) {
-            tables.forEach(name => {
+            tables.forEach(table => {
                 const card = `
-                <div class="table-card" onclick="window.location.href='table_view.html?table_id=${name}'">
+                <div class="table-card" onclick="window.location.href='table_view.html?table_id=${table.internal_id}&name=${encodeURIComponent(table.name)}'">
                     <i class="fa-solid fa-database fa-2x mb-2 text-secondary"></i>
-                    <h3>${name}</h3>
-                    <small>Click to Manage</small>
+                    <h3>${table.name}</h3>
+                    <small>ID: ${table.internal_id}</small>
                 </div>`;
                 grid.innerHTML += card;
             });
@@ -114,8 +117,10 @@ window.createNewTable = async function() {
         const response = await Api.createTable(name);
         
         if (response.ok) {
+            
+            const data = await response.json();
             // 2. If success, go to the table view
-            window.location.href = `table_view.html?table_id=${name}`;
+            window.location.href = `table_view.html?table_id=${data.internal_id}&name=${encodeURIComponent(name)}`;
         } else {
             const err = await response.json();
             alert("Error: " + (err.message || "Could not create table"));
