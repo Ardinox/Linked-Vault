@@ -80,16 +80,7 @@ document.addEventListener("DOMContentLoaded", () => {
     addBtn.addEventListener("click", addData);
   }
 
-  // C. ROUTER: Close/Clear Button
-  const clearBtn = document.getElementById("clearBtn");
-  if (clearBtn) {
-    clearBtn.addEventListener("click", () => {
-      clearAddForm();
-      window.location.href = `table_view.html?table_id=${TABLE_ID}&name=${encodeURIComponent(TABLE_NAME || "")}`;
-    });
-  }
-
-  // D. ROUTER: Update Employee Page
+  // C. ROUTER: Update Employee Page
   const updateBtn = document.getElementById("updateBtn");
   if (updateBtn) {
     const idToUpdate = params.get("id");
@@ -109,6 +100,15 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     updateBtn.addEventListener("click", performUpdate);
+  }
+
+  // D. ROUTER: Close/Clear Button
+  const clearBtn = document.getElementById("clearBtn");
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      clearAddForm();
+      window.location.href = `table_view.html?table_id=${TABLE_ID}&name=${encodeURIComponent(TABLE_NAME || "")}`;
+    });
   }
 
   // E. ROUTER: Search Bar
@@ -157,7 +157,10 @@ async function loadNavbar() {
       const href = link.getAttribute("href");
       if (href && href !== "#") {
         const separator = href.includes("?") ? "&" : "?";
-        link.setAttribute("href", `${href}${separator}table_id=${TABLE_ID}&name=${encodeURIComponent(TABLE_NAME||"")}`);
+        link.setAttribute(
+          "href",
+          `${href}${separator}table_id=${TABLE_ID}&name=${encodeURIComponent(TABLE_NAME || "")}`,
+        );
       }
       if (href && href.includes(currentFile)) {
         link.classList.add("active");
@@ -226,7 +229,7 @@ async function loadEmployeeForUpdate(id) {
     const data = await Api.search(id, TABLE_ID);
     if (!data) {
       alert("Employee not found");
-      window.location.href = `table_view.html?table_id=${TABLE_ID}&name=${encodeURIComponent(TABLE_NAME||"")}`;
+      window.location.href = `table_view.html?table_id=${TABLE_ID}&name=${encodeURIComponent(TABLE_NAME || "")}`;
       return;
     }
     // Auto-fill form
@@ -267,7 +270,7 @@ async function performUpdate() {
     const response = await Api.update(payload);
     if (response.ok) {
       window.location.replace(
-        `table_view.html?table_id=${TABLE_ID}&name=${encodeURIComponent(TABLE_NAME||"")}&action=updated`,
+        `table_view.html?table_id=${TABLE_ID}&name=${encodeURIComponent(TABLE_NAME || "")}&action=updated`,
       );
     } else {
       const err = await response.json();
@@ -402,12 +405,24 @@ window.send_file_to_backend = async function () {
 };
 
 window.deleteData = async function () {
-  if (!confirm("Wipe entire table?")) return;
+  if (
+    !confirm(
+      "⚠️ WARNING: This will PERMANENTLY delete this table and all its contents.\n\nYou will be redirected to the Admin Dashboard.",
+    )
+  )
+    return;
   try {
     const response = await Api.clearTable(TABLE_ID);
-    if (response.ok) window.loadStandardTable();
+    if (response.ok) {
+      alert("Table deleted successfully.");
+      window.location.href = "../views/admin.html";
+    } else {
+      const err = await response.json();
+      alert("Failed to delete table: " + (err.message || "Unknown error"));
+    }
   } catch (e) {
     console.error(e);
+    alert("Network Error");
   }
 };
 
@@ -436,7 +451,7 @@ function renderTable(data) {
             <td>$${emp.salary}</td>
             <td>
                 <button class="btn btn-danger btn-sm" onclick="deleteEmp(${emp.id})">Delete</button>
-                <a class="btn btn-dark btn-sm" href="update_emp.html?id=${emp.id}&pos=${index}&table_id=${TABLE_ID}&name=${encodeURIComponent(TABLE_NAME||"")}">Update</a>
+                <a class="btn btn-dark btn-sm" href="update_emp.html?id=${emp.id}&pos=${index}&table_id=${TABLE_ID}&name=${encodeURIComponent(TABLE_NAME || "")}">Update</a>
             </td>
         </tr>`;
     tbody.innerHTML += row;

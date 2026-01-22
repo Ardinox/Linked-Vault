@@ -783,53 +783,26 @@ void handle_import(struct mg_connection *c, struct mg_http_message *hm)
                 "{ \"status\": \"Success\", \"added\": %d, \"skipped\": %d }", count, skipped);
 }
 
-// --- Handle Linkedlist cleanup ---
-void handle_delete_linkedlist(struct mg_connection *c, struct mg_http_message *hm)
-{
-  char table_id_str[32], owner_id_str[32];
+// --- Handle Table cleanup ---
+void handle_clear_table(struct mg_connection *c, struct mg_http_message *hm) {
+    char table_id_str[32], owner_id_str[32];
+    if (mg_http_get_var(&hm->query, "table_id", table_id_str, sizeof(table_id_str)) <= 0 ||
+        mg_http_get_var(&hm->query, "owner_id", owner_id_str, sizeof(owner_id_str)) <= 0) {
+        mg_http_reply(c, 400, "", "{\"error\":\"Missing params\"}");
+        return;
+    }
 
-  // 1. Extract Both IDs
-  if (mg_http_get_var(&hm->query, "table_id", table_id_str, sizeof(table_id_str)) <= 0 ||
-      mg_http_get_var(&hm->query, "owner_id", owner_id_str, sizeof(owner_id_str)) <= 0)
-  {
-      mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", 
-                    "{ \"status\": \"Error\", \"message\": \"Missing 'table_id' or 'owner_id'\" }");
-      return;
-  }
+    int table_id = atoi(table_id_str);
+    int owner_id = atoi(owner_id_str);
 
-  // 2. Load Table
-  Table *t = get_or_load_table(atoi(table_id_str), atoi(owner_id_str));
-  if (!t)
-  {
-    mg_http_reply(c, 403, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", 
-                  "{ \"status\": \"Error\", \"message\": \"Access Denied or Table Not Found\" }");
-    return;
-  }
+    // Call the safe storage function
+    int res = delete_table_permanently(table_id, owner_id);
 
-  pthread_mutex_lock(&t->lock);
-
-  if (t->employeelist.head == NULL)
-  {
-    pthread_mutex_unlock(&t->lock);
-    mg_http_reply(c, 404, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
-                  "{ \"status\": \"Error\", \"message\": \"List is already empty\" }");
-    return;
-  }
-
-  emp *curr = t->employeelist.head;
-  while (curr != NULL)
-  {
-    emp *next = curr->next;
-    free(curr);
-    curr = next;
-  }
-
-  t->employeelist.head = NULL;
-  t->employeelist.tail = NULL;
-
-  save_table_binary(t);
-  pthread_mutex_unlock(&t->lock);
-
-  mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
-                "{ \"status\": \"Success\"}");
+    if (res == 0) {
+        mg_http_reply(c, 200, "Content-Type: application/json\r\n", 
+                      "{\"status\":\"success\"}");
+    } else {
+        mg_http_reply(c, 404, "Content-Type: application/json\r\n", 
+                      "{\"error\":\"Table not found or permission denied\"}");
+    }
 }

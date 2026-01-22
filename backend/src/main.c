@@ -90,9 +90,9 @@ static void fn(struct mg_connection *c, int ev, void *ev_data)
     {
       handle_export(c, hm);
     }
-    else if (mg_match(hm->uri, mg_str("/clear_table"), NULL) && is_method(hm, "DELETE"))
+    else if (mg_match(hm->uri, mg_str("/delete_table"), NULL) && is_method(hm, "DELETE"))
     {
-      handle_delete_linkedlist(c, hm);
+      handle_clear_table(c, hm);
     }
     // Default Catch-All: 404 Not Found
     else

@@ -233,8 +233,13 @@ int save_table_metadata(int owner_id, const char* display_name) {
 
 TableMetadata* get_user_tables(int user_id, int *count) {
     *count = 0;
+
+    pthread_mutex_lock(&file_registry_lock);
     FILE *fp = fopen("bin/users/tables_registry.bin", "rb");
-    if (!fp) return NULL;
+    if (!fp) {
+        pthread_mutex_unlock(&file_registry_lock);
+        return NULL;
+    }
 
     // A. Count
     TableMetadata temp;
@@ -247,6 +252,7 @@ TableMetadata* get_user_tables(int user_id, int *count) {
     
     if (matches == 0) {
         fclose(fp);
+        pthread_mutex_unlock(&file_registry_lock);
         return NULL;
     }
 
@@ -257,10 +263,14 @@ TableMetadata* get_user_tables(int user_id, int *count) {
     int index = 0;
     while (fread(&temp, sizeof(TableMetadata), 1, fp)) {
         if (temp.owner_id == user_id && temp.is_active == 1) {
-            list[index++] = temp;
+            if (index < matches) {
+                list[index++] = temp;
+            }
         }
     }
     fclose(fp);
+
+    pthread_mutex_unlock(&file_registry_lock);
     
     *count = matches;
     return list;
@@ -280,4 +290,53 @@ int is_table_owner(int user_id, int table_id) {
     }
     fclose(fp);
     return found;
+}
+
+int delete_table_permanently(int table_id, int owner_id) {
+    pthread_mutex_lock(&file_registry_lock);
+
+    // 1. Delete the physical data file (The BIN with employee data)
+    char filename[100];
+    snprintf(filename, sizeof(filename), "bin/tables/%d.bin", table_id);
+    remove(filename); // Returns non-zero on fail, but we continue anyway to clean registry
+
+    // 2. Rewrite Registry to remove metadata (Copy-Swap Method)
+    FILE *fp = fopen("bin/users/tables_registry.bin", "rb");
+    if (!fp) {
+        pthread_mutex_unlock(&file_registry_lock);
+        return -1; // Registry missing
+    }
+
+    FILE *temp = fopen("bin/users/temp_registry.bin", "wb");
+    if (!temp) {
+        fclose(fp);
+        pthread_mutex_unlock(&file_registry_lock);
+        return -2; // Write fail
+    }
+
+    TableMetadata meta;
+    int found = 0;
+    while(fread(&meta, sizeof(TableMetadata), 1, fp)) {
+        // If ID matches AND Owner matches, we SKIP writing it (Deleting it)
+        if (meta.id == table_id && meta.owner_id == owner_id) {
+            found = 1;
+            continue; 
+        }
+        fwrite(&meta, sizeof(TableMetadata), 1, temp);
+    }
+
+    fclose(fp);
+    fclose(temp);
+
+    // 3. Swap Files
+    if (found) {
+        remove("bin/users/tables_registry.bin");
+        rename("bin/users/temp_registry.bin", "bin/users/tables_registry.bin");
+        printf("[STORAGE] Table %d deleted permanently.\n", table_id);
+    } else {
+        remove("bin/users/temp_registry.bin"); // Cleanup temp if nothing found
+    }
+
+    pthread_mutex_unlock(&file_registry_lock);
+    return found ? 0 : -3; // 0 success, -3 not found
 }

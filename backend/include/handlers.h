@@ -49,6 +49,6 @@ void handle_import(struct mg_connection *c, struct mg_http_message *hm);
 void handle_export(struct mg_connection *c, struct mg_http_message *hm);
 
 // --- 9. Linked List Cleanup ---
-void handle_delete_linkedlist(struct mg_connection *c, struct mg_http_message *hm);
+void handle_clear_linkedlist(struct mg_connection *c, struct mg_http_message *hm);
 
 #endif

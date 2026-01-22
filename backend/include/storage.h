@@ -46,4 +46,7 @@ TableMetadata* get_user_tables(int user_id, int *count);
 // Verify if a table belongs to a user (Security Check)
 int is_table_owner(int user_id, int table_id);
 
+// Delete Table from memory
+int delete_table_permanently(int table_id, int owner_id);
+
 #endif

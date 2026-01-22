@@ -20,6 +20,12 @@ export const Api = {
     });
   },
 
+  async clearTable(tableId) {
+    return await http(`${BASE}/delete_table?table_id=${tableId}`, {
+      method: "DELETE",
+    });
+  },
+
   // --- READ DATA ---
   async getAll(tableId) {
     const res = await http(`${BASE}/show?table_id=${tableId}`);
@@ -66,12 +72,6 @@ export const Api = {
   async recursiveReverse(tableId) {
     const res = await http(`${BASE}/recursivereverse?table_id=${tableId}`);
     return res.ok ? await res.json() : [];
-  },
-
-  async clearTable(tableId) {
-    return await http(`${BASE}/clear_table?table_id=${tableId}`, {
-      method: "DELETE",
-    });
   },
 
   // --- FILES ---
