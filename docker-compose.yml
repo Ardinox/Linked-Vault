@@ -24,10 +24,6 @@ services:
       - SECRET_KEY=22fc36d1787283fb99a48c27492462b8135d71cc212b105d91860af72adad8da016d1640436e836176b4867f24b2728d56790b2b30478e2e5ee0c38795b16327
       # "backend" matches the service name defined on line 4
       - BACKEND_URL=http://backend:8000 
-    volumes:
-      # Maps your local 'logs' folder to '/app/logs' inside container
-      # Node writes to: path.join(__dirname, 'logs') -> /app/logs
-      - ./gateway/logs:/app/logs
     restart: unless-stopped
 
   # 3. Frontend (The UI)

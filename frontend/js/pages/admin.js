@@ -137,11 +137,16 @@ async function loadAuditLogs() {
     tbody.innerHTML = '<tr><td colspan="3" class="text-center">Loading...</td></tr>';
 
     try {
+        // 1. API Call: CORRECT ✅
+        // This matches the Gateway route: app.get("/api/history", ...)
         const response = await fetch(`${CONFIG.API_URL}/api/history`, {
             headers: { 'Authorization': `Bearer ${Auth.getToken()}` }
         });
 
         const logs = await response.json();
+        
+        logs.reverse();
+        // Clear loading message
         tbody.innerHTML = "";
 
         if (!logs || logs.length === 0) {
@@ -149,21 +154,29 @@ async function loadAuditLogs() {
             return;
         }
 
+        // Optimization: Build one big string instead of editing DOM in every loop
+        let rows = ""; 
+
         logs.forEach(log => {
+            // Ensure your ACTION_COLORS matches C strings (e.g. "INSERT", "DELETE")
             const color = ACTION_COLORS[log.action] || "text-secondary";
 
-            const row = `
+            // 2. Data Mapping: FIXED 🛠️
+            // Changed from log.username -> log.details
+            // Reordered columns to: Time | Action | Details
+            rows += `
                 <tr>
-                    <td>${formatTime(log.timestamp)}</td>
-                    <td>${log.username}</td>
-                    <td class="fw-bold ${color}">
-                        ${formatAction(log.action)}
+                    <td class="text-nowrap">${log.timestamp}</td> <td class="fw-bold ${color}">
+                        ${log.action}
+                    </td>
+                    <td>
+                        ${log.details}
                     </td>
                 </tr>
             `;
-
-            tbody.innerHTML += row;
         });
+
+        tbody.innerHTML = rows;
 
     } catch (error) {
         console.error(error);

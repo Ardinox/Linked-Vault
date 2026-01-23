@@ -91,6 +91,7 @@ dkms.conf
 # 4. Project Data Files
 # ========================
 # Ignore CSVs generally, but keep sample.csv
+*.log
 *.csv
 !sample.csv
 !frontend/assets/sample.csv 

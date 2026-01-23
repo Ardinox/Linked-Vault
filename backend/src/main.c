@@ -54,6 +54,10 @@ static void fn(struct mg_connection *c, int ev, void *ev_data)
     {
       handle_list_table(c, hm);
     }
+    else if (mg_match(hm->uri, mg_str("/history"), NULL) && is_method(hm, "GET"))
+    {
+      handle_history(c, hm);
+    }
     else if (mg_match(hm->uri, mg_str("/insert"), NULL) && is_method(hm, "POST"))
     {
       handle_insertion(c, hm);

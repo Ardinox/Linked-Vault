@@ -225,6 +225,18 @@ app.get("/download_table", async (req, res) => {
     }
 });
 
+// ==========================
+// 6. LOGS & HISTORY
+// ==========================
+
+app.get("/api/history", async (req, res) => {
+    // 1. Forward the request to the C Backend
+    const result = await callC("GET", "/history", {}, req.query, req.user);
+    
+    // 2. Return the result
+    res.status(result.status).json(result.data);
+});
+
 app.listen(port, () => {
     console.log(`Gatekeeper running on port ${port}`);
 });

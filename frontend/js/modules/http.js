@@ -26,12 +26,14 @@ export async function http(url, options = {}) {
       const response = await fetch(url, { ...options, headers });
 
       // 4. Server says Token Expired (401) or Forbidden (403)
-      if (response.status === 401 || response.status === 403) {
-        console.warn("Server rejected session. Logging out...");
-        Auth.logout(); // Triggers alert + redirect
-        
-        // Return a pending promise to freeze the UI while redirecting
-        return new Promise(() => {}); 
+      if (response.status === 401) {
+        console.warn("Session expired (401). Logging out...");
+        Auth.logout(); 
+        return new Promise(() => {});
+      }
+      if (response.status === 403) {
+        console.warn(`⛔ Access Denied (403) for ${url}`);
+        throw new Error("Access Denied: You do not have permission to view this.");
       }
 
       return response;
