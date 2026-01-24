@@ -27,9 +27,6 @@ extern pthread_mutex_t global_list_lock;
 
 // --- FUNCTIONS ---
 
-// Find a table in RAM by ID. Returns NULL if not loaded.
-Table* find_loaded_table(int table_id);
-
 // Load a table into RAM (or return existing). 
 // Requires owner_id for security verification.
 Table* get_or_load_table(int table_id, int owner_id);

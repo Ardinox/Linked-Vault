@@ -144,12 +144,11 @@ void handle_create_table(struct mg_connection *c, struct mg_http_message *hm)
   cJSON *owner_item = cJSON_GetObjectItem(json, "owner_id");
   cJSON *name_item = cJSON_GetObjectItem(json, "name");
 
-  if (owner_item && name_item)
+  if (cJSON_IsNumber(owner_item) && cJSON_IsString(name_item))
   {
     int internal_id = save_table_metadata(owner_item->valueint, name_item->valuestring);
 
     unload_table(internal_id);
-    // ------------------------------------
 
     char log_details[128];
     snprintf(log_details, sizeof(log_details), "Created Table: %s", name_item->valuestring);

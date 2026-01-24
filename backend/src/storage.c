@@ -293,6 +293,7 @@ int is_table_owner(int user_id, int table_id) {
 }
 
 int delete_table_permanently(int table_id, int owner_id) {
+    unload_table(table_id);
     pthread_mutex_lock(&file_registry_lock);
 
     // 1. Delete the physical data file (The BIN with employee data)

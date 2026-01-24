@@ -23,16 +23,6 @@ const ACTION_COLORS = {
     REVERSE_LIST: "text-secondary"
 };
 
-const formatAction = (action) =>
-    ACTION_LABELS[action] || action.replace(/_/g, " ");
-
-const formatTime = (iso) =>
-    new Date(iso).toLocaleString("en-IN", {
-        dateStyle: "medium",
-        timeStyle: "short"
-    });
-
-
 // 1. Session Check
 Auth.checkSession();
 
@@ -95,7 +85,6 @@ async function loadTableList() {
                 <div class="table-card" onclick="window.location.href='table_view.html?table_id=${table.internal_id}&name=${encodeURIComponent(table.name)}'">
                     <i class="fa-solid fa-database fa-2x mb-2 text-secondary"></i>
                     <h3>${table.name}</h3>
-                    <small>ID: ${table.internal_id}</small>
                 </div>`;
                 grid.innerHTML += card;
             });
@@ -137,16 +126,10 @@ async function loadAuditLogs() {
     tbody.innerHTML = '<tr><td colspan="3" class="text-center">Loading...</td></tr>';
 
     try {
-        // 1. API Call: CORRECT ✅
-        // This matches the Gateway route: app.get("/api/history", ...)
-        const response = await fetch(`${CONFIG.API_URL}/api/history`, {
-            headers: { 'Authorization': `Bearer ${Auth.getToken()}` }
-        });
-
-        const logs = await response.json();
+        const logs = await Api.getHistory();
         
         logs.reverse();
-        // Clear loading message
+
         tbody.innerHTML = "";
 
         if (!logs || logs.length === 0) {
@@ -154,16 +137,11 @@ async function loadAuditLogs() {
             return;
         }
 
-        // Optimization: Build one big string instead of editing DOM in every loop
         let rows = ""; 
 
         logs.forEach(log => {
-            // Ensure your ACTION_COLORS matches C strings (e.g. "INSERT", "DELETE")
             const color = ACTION_COLORS[log.action] || "text-secondary";
 
-            // 2. Data Mapping: FIXED 🛠️
-            // Changed from log.username -> log.details
-            // Reordered columns to: Time | Action | Details
             rows += `
                 <tr>
                     <td class="text-nowrap">${log.timestamp}</td> <td class="fw-bold ${color}">

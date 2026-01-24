@@ -88,4 +88,8 @@ export const Api = {
       body: csvContent,
     });
   },
+  async getHistory() {
+    const res = await http(`${BASE}/api/history`);
+    return res.ok ? await res.json() : [];
+  },
 };
