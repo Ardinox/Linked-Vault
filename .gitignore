@@ -1,61 +1,106 @@
-# Prerequisites
+# ========================
+# 1. OS & IDE Standards
+# ========================
+# Mac & Windows Junk
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# VS Code & Editor Configs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ========================
+# 2. Node.js (Gateway)
+# ========================
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json # Optional: Remove this line if you WANT to commit lock files (recommended)
+
+# Environment Variables (Secrets)
+.env
+*.env
+
+# Gateway Logs (Ignore contents, keep folder)
+gateway/logs/*
+!gateway/logs/.gitkeep
+
+# ========================
+# 3. C Backend Artifacts
+# ========================
+# Prerequisites & Objects
 *.d
-
-# Object files
 *.o
-*.ko
 *.obj
+*.ko
 *.elf
-*.bin
-
-# Linker output
-*.ilk
-*.map
-*.exp
 
 # Precompiled Headers
 *.gch
 *.pch
 
-# Libraries
+# Libraries & Linker Output
 *.lib
 *.a
 *.la
 *.lo
+*.ilk
+*.map
+*.exp
 
-# Shared objects (inc. Windows DLLs)
+# Shared Objects (DLLs)
 *.dll
 *.so
 *.so.*
 *.dylib
 
-# Executables
+# Executables (Windows & Linux)
 *.exe
 *.out
 *.app
 *.i*86
 *.x86_64
 *.hex
+*.bat
+*.cmd
 
-# Debug files
+# Specific Binaries for this project
+server
+LinkedVault
+backend/server
+
+# Debug Files
 *.dSYM/
 *.su
 *.idb
 *.pdb
+*.dwo
 
-# Kernel Module Compile Results
+# Kernel Module Artifacts
 *.mod*
-*.cmd
 .tmp_versions/
 modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
-.vscode
 
-# debug information files
-*.dwo
-*.bat
+# ========================
+# 4. Project Data Files
+# ========================
+# Ignore CSVs generally, but keep sample.csv
+*.log
 *.csv
-
 !sample.csv
+!frontend/assets/sample.csv 
+
+# Backend Data Binaries
+# Ignore everything in bin/ but keep the folder
+backend/bin/users/*
+backend/bin/tables/*
+!backend/bin/users/.gitkeep
+!backend/bin/tables/.gitkeep
+# Also ignore loose bin files if any
+*.bin

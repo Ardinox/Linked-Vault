@@ -1,0 +1,36 @@
+services:
+  # 1. C Backend (The Core Engine)
+  backend:
+    build: ./backend
+    container_name: linkedvault-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # Maps local 'bin' folder to '/app/bin' inside container
+      # ENSURE: C code reads files like "bin/data.dat" or "./bin/data.dat"
+      - ./backend/bin:/app/bin
+    restart: unless-stopped
+
+  # 2. Node Gatekeeper (The Security Guard)
+  gateway:
+    build: ./gateway
+    container_name: linkedvault-gateway
+    ports:
+      - "4000:4000"
+    depends_on:
+      - backend
+    environment:
+      - PORT=4000
+      - SECRET_KEY=22fc36d1787283fb99a48c27492462b8135d71cc212b105d91860af72adad8da016d1640436e836176b4867f24b2728d56790b2b30478e2e5ee0c38795b16327
+      # "backend" matches the service name defined on line 4
+      - BACKEND_URL=http://backend:8000 
+    restart: unless-stopped
+
+  # 3. Frontend (The UI)
+  frontend:
+    build: ./frontend
+    container_name: linkedvault-frontend
+    ports:
+      - "3000:80" # Access UI at http://localhost:3000
+    depends_on:
+      - gateway

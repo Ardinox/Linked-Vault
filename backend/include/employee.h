@@ -22,7 +22,6 @@ typedef struct employee
 } emp;
 
 // 2. Serialization Struct (For Disk - No Pointers!)
-// Fixed: Removed the "employee" tag here to prevent duplicate definition error
 typedef struct 
 {
   int id;

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LinkedVault - Admin Dashboard</title>
+    <link rel="icon" type="image/x-icon" href="../Assets/logo2.png" />
+
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
+      crossorigin="anonymous"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+      rel="stylesheet"
+    />
+
+    <link rel="stylesheet" href="../css/auth.css" />
+    <style>
+      .user-avatar {
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+      }
+      /* Toggle Button Styling */
+      .nav-pills .nav-link {
+        color: white;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        margin-right: 10px;
+      }
+      .nav-pills .nav-link.active {
+        background-color: #f1c40f;
+        color: #2c3e50;
+        font-weight: bold;
+        border: none;
+      }
+
+      /* Hide sections by default */
+      .view-section {
+        display: none;
+      }
+      .view-section.active {
+        display: block;
+        animation: fadeIn 0.3s;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+    </style>
+  </head>
+  <body class="bg-pattern">
+    <div class="admin-container">
+      <div class="admin-header">
+        <div class="user-profile">
+          <div class="user-avatar">
+            <i class="fa-solid fa-user fa-lg text-dark"></i>
+          </div>
+          <div>
+            <h5 class="m-0">Welcome, Admin</h5>
+            <small class="text-white-50">System Administrator</small>
+          </div>
+        </div>
+
+        <ul class="nav nav-pills">
+          <li class="nav-item">
+            <button class="nav-link active" onclick="switchView('tables', event)">
+              <i class="fa-solid fa-table me-2"></i>My Tables
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" onclick="switchView('logs', event)">
+              <i class="fa-solid fa-shield-halved me-2"></i>Security Logs
+            </button>
+          </li>
+        </ul>
+
+        <button class="btn btn-outline-light btn-sm" id="logoutBtn">
+          Logout <i class="fa-solid fa-right-from-bracket ms-2"></i>
+        </button>
+      </div>
+
+      <div id="view-tables" class="view-section active">
+        <h4 class="mb-4">Database Tables</h4>
+        <div class="table-grid" id="tableGrid">
+          <p>Loading tables...</p>
+        </div>
+      </div>
+
+      <div id="view-logs" class="view-section">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h4 class="m-0">Audit History</h4>
+          <button class="btn btn-sm btn-light" id="refreshLogsBtn">
+            <i class="fa-solid fa-rotate-right me-1"></i> Refresh
+          </button>
+        </div>
+
+        <div class="card shadow-sm border-0">
+          <div class="card-body p-0 rounded overflow-hidden">
+            <table class="table table-hover mb-0">
+              <thead class="table-dark">
+                <tr>
+                  <th>Time</th>
+                  <th>User</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="logBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="createTableModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content text-dark">
+          <div class="modal-header">
+            <h5 class="modal-title">Create New Table</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <label>Table Name (ID)</label>
+            <input
+              type="text"
+              id="newTableName"
+              class="form-control"
+              placeholder="e.g. Marketing"
+            />
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-primary"
+              onclick="createNewTable()"
+            >
+              Create
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+      crossorigin="anonymous"
+    ></script>
+    <script type="module" src="../js/pages/admin.js"></script>
+  </body>
+</html>

@@ -1,125 +1,126 @@
-![Language](https://img.shields.io/badge/Language-C-00599C?style=for-the-badge&logo=c&logoColor=white)
+![Backend](https://img.shields.io/badge/Backend-C-00599C?style=for-the-badge&logo=c&logoColor=white)
+![Middleware](https://img.shields.io/badge/Middleware-Node.js-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![Frontend](https://img.shields.io/badge/Frontend-HTML5_%2F_JS-E34F26?style=for-the-badge&logo=html5&logoColor=white)
-![Architecture](https://img.shields.io/badge/Architecture-REST_API-success?style=for-the-badge&logo=serverless&logoColor=white)
-![Build](https://img.shields.io/badge/Build-Make-orange?style=for-the-badge)
+![Architecture](https://img.shields.io/badge/Architecture-3--Tier-success?style=for-the-badge&logo=serverless&logoColor=white)
 
 # LinkedVault
 
-LinkedVault is a robust and fast Employee Management System built with a custom C backend and a modern, responsive HTML/JS frontend. It acts as a practical demonstration of using a **Singly Linked List** in a real-world server application to manage employee records efficiently in memory.
+**LinkedVault** is a secure, high-performance Employee Management System that bridges low-level C systems programming with modern web architecture. It features a custom **Linked List-based in-memory database**, binary file persistence, and a secure Node.js API gateway, all fully containerized with Docker.
 
----
+## 🏗 Architecture
+
+The system follows a strictly layered **Client-Gateway-Server** pattern designed for security and performance:
+
+- **Frontend (Presentation Layer):**
+  - Built with **Vanilla JS (ES6 Modules)** for a lightweight, dependency-free experience.
+  - Handles client-side state and renders dynamic tables from JSON data.
+  - Communicates exclusively with the Gateway, never directly with the C backend.
+
+- **Gateway (Logic & Security Layer):**
+  - A **Node.js/Express** middleware that acts as the single entry point.
+  - **JWT Guard:** Decodes tokens and validates user sessions before processing requests.
+  - **Context Injection:** Automatically injects the user's `owner_id` into payloads, ensuring strict data isolation at the protocol level.
+
+- **Backend (High-Performance Engine):**
+  - Written in **C11**, optimizing for manual memory management and raw speed.
+  - **In-Memory Database:** Loads data into a **Singly Linked List** heap structure for $O(1)$ access times.
+  - **Binary Storage:** Serializes memory structures directly to disk (`.bin`), avoiding the overhead of SQL parsing or JSON conversion during I/O.
 
 ## 🚀 Key Features
 
-### 🛠 Core Engineering
+### 🛠 Core Engineering (C Backend)
 
-- **Custom Data Structures:** Implements a dynamic Singly Linked List (`struct employee *next`) for $O(1)$ insertions and flexible memory usage.
-- **Thread Safety:** Utilizes **POSIX Mutex Locks** (`pthread_mutex_t`) to ensure data integrity during concurrent read/write operations, effectively preventing Race Conditions.
-- **Memory Management:** Custom logic to `malloc` and `free` nodes dynamically, ensuring zero memory leaks during lifecycle operations.
-- **Persistence:** Saves and retrieves the in-memory linked list to/from binary files on disk.
+- **Custom Data Structures:** Implements dynamic Singly Linked Lists (`struct employee *next`) for $O(1)$ insertions.
+- **Thread Safety:** Uses **POSIX Mutex Locks** to prevent Race Conditions during concurrent read/write.
+- **Binary Persistence:** Saves/Loads data directly to/from binary files (`.bin`), which is significantly faster than text-based formats.
+- **Audit Logging:** Automatically tracks every `CREATE`, `UPDATE`, and `DELETE` action with timestamps.
 
-### ⚡ Functionality
+### 🛡️ Security & Web (Node Gateway)
 
-- **CRUD Operations:** Create, Read, Update, and Delete employee records via a RESTful API.
-- **Advanced Algorithms:**
-  - **Linked Reverse:** Physically reverses the pointers of the linked list in memory.
-  - **Recursive View:** Uses recursion to generate a reversed JSON view without modifying the actual heap memory.
-- **Data Persistence:**
-  - **Bulk Import:** High-speed parsing of CSV files to populate the list.
-  - **Export:** Streams current memory state to a downloadable `.csv` file.
+- **JWT Authentication:** Secure session management; users must log in to access data.
+- **Role-Based Access (RBAC):** Users can only access tables they explicitly own (Strict 403 enforcement).
+- **Dockerized:** Fully isolated environments ensuring the app runs exactly the same on any machine.
 
 ## 📂 Project Structure
 
 ```text
 LinkedVault/
-├── backend/                # The C Server Logic
-│   ├── include/            # Header files (.h)
-│   ├── src/                # Source code (.c)
-│   ├── vendor/             # Dependencies (Mongoose, cJSON)
-│   ├── Makefile            # Build configuration
-│   └── LinkedVault.exe     # Compiled Executable (after build)
+├── backend/            # The C Engine
+│   ├── bin/            # Database storage (mapped to host)
+│   ├── include/        # Header files (.h)
+│   ├── src/            # Source code (.c)
+│   ├── vendor/         # External libs (mongoose, cJSON)
+│   └── Dockerfile      # Multi-stage build (GCC -> Debian Slim)
 │
-├── frontend/               # The Web Interface
-│   ├── Assets/             # Images and logos
-│   ├── Dashboard/          # App Logic (add, update, table view)
-│   │   ├── dashboard.js    # Main Frontend Controller
-│   │   ├── styles.css      # Dashboard specific styles
-│   │   └── *.html          # Dashboard pages
-│   ├── global.css          # Landing page styles
-│   └── index.html          # Landing Page
+├── gateway/            # The Node.js Security Layer
+│   ├── server.js       # Auth logic & Proxy
+│   ├── package.json    # Project dependencies
+│   ├── .env            # Environment variables
+│   └── Dockerfile      # Node Alpine image
 │
-└── README.md               # Project Documentation
+├── frontend/           # The User Interface
+│   ├── Assets/         # Static images and icons
+│   ├── views/          # HTML partials and views
+│   ├── js/             # Main JavaScript logic
+│   │   ├── modules/    # Reusable API & Auth scripts
+│   │   └── pages/      # Dashboard & Page controllers
+│   ├── index.html      # Main entry point
+│   └── Dockerfile      # Nginx image
+│
+└── docker-compose.yml  # Container Orchestration
 ```
 
 ## 🛠️ Prerequisites
 
-Before setting up the project, ensure your environment meets the following requirements:
-
-### System & Tools
-
-- **C Compiler (GCC):**
-  - **Linux/macOS:** Standard `gcc` installation.
-  - **Windows:** [MinGW-w64](https://www.mingw-w64.org/).
-    > ⚠️ **Critical for Windows:** You **must** ensure your compiler supports POSIX threads. If installing MinGW, select **`posix`** for the "Threads" setting (do not use `win32`). If you encounter errors like `undefined reference to pthread_create`, you have the wrong MinGW version.
-- **Build Automation:**
-  - **Windows:** `mingw32-make` (included with MinGW).
-  - **Linux/macOS:** GNU `make`.
-- **Web Browser:** Modern standards-compliant browser (Chrome, Firefox, Edge, Safari).
-
----
+Docker Desktop (or Docker Engine + Compose)
 
 ## ⚡ Quick Start Guide
 
-### 1. Build and Run the Backend
+### 1. Build and Run
 
-The backend is a standalone C application that acts as the API server.
+Open your terminal in the project root and run:
 
-1.  Open your terminal or command prompt.
-2.  Navigate to the backend directory:
-    ```bash
-    cd backend
-    ```
-3.  Compile the project:
+   ```bash
+   docker-compose up --build
+   ```
 
-    ```bash
-    # For Windows
-    mingw32-make clean
-    mingw32-make
+### 2. Access the App
 
-    # For Linux/Mac
-    make clean
-    make
-    ```
+Once the logs say "Server running...", open your browser:
 
-4.  Start the server:
-    ```bash
-    .\LinkedVault.exe
-    ```
-    > **Success:** You should see the message: `Server running on port 8000...`
+👉 `http://localhost:3000`
 
-### 2. Launch the Dashboard
+### 3. Usage Flow
 
-You can run the user interface effortlessly:
+**Register:** Create a new account on the login screen.
 
-1.  Navigate to the `frontend/` folder.
-2.  Simply double-click `index.html` to open it in your browser.
-3.  Ensure the backend is running; the dashboard will connect to `http://localhost:8000` automatically.
+**Dashboard:** Click "Create Table" to start a new Employee Database.
+
+**Manage Data:** Click "View" on your table to Add, Delete, or Search for employees.
+
+**Audit Logs:** Check the "History" tab to see your actions recorded in real-time.
 
 ---
 
 ## 🔌 API Endpoints
 
-| Method | Endpoint            | Description                                     |
-| :----- | :------------------ | :---------------------------------------------- |
-| POST   | `/insert`           | Add a new employee                              |
-| GET    | `/show`             | Get all employees (JSON)                        |
-| GET    | `/search?id=X`      | Find employee by ID                             |
-| DELETE | `/delete?id=X`      | Remove an employee                              |
-| PUT    | `/linkedreverse`    | Reverse the backend linked list                 |
-| GET    | `/recursivereverse` | Get reversed view (JSON) **(See Known Issues)** |
-| POST   | `/upload_csv`       | Import data from CSV                            |
-| GET    | `/download_table`   | Download data as CSV                            |
-| DELETE | `/clear_table`      | Delete all records                              |
+| Method | Endpoint             | Description                                     |
+| :----- | :------------------- | :---------------------------------------------- |
+| POST   | `/auth/register`     | Create a new user account                       |
+| POST   | `/auth/login`        | Login and receive JWT token                     |
+| POST   | `/my_tables`         | Create a new table                              |
+| POST   | `/list_tables`       | Get list of tables owned by user                |
+| DELETE | `/delete_table`      | Permanently delete a table                      |
+| POST   | `/insert`            | Add a new employee record                       |
+| GET    | `/show`              | Get all employees (JSON)                        |
+| GET    | `/search`            | Find employee by ID                             |
+| PUT    | `/update`            | Update an existing employee                     |
+| DELETE | `/delete`            | Remove an employee                              |
+| PUT    | `/linkedreverse`     | Reverse the backend linked list                 |
+| GET    | `/recursivereverse`  | Get reversed view (JSON) **(Recursive)**        |
+| POST   | `/upload_csv`        | Import data from CSV string                     |
+| GET    | `/download_table`    | Download data as CSV file                       |
+| GET    | `/api/history`       | View audit logs of user actions                 |
 
 ---
 
@@ -151,6 +152,6 @@ You can run the user interface effortlessly:
         <sub><b>Arka</b></sub>
       </a>
     </td>
-    
+
   </tr>
 </table>
