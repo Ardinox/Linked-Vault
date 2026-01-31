@@ -13,8 +13,8 @@ body.dashboard-body {
     background-image: repeating-radial-gradient(ellipse,
             #ffffff,
             #ffffff 10px,
-            #f0f9ff 10px,
-            #f0f9ff 20px);
+            #effff7 10px,
+            #edfcf1 20px);
     background-size: 50px 50px;
     min-height: 100vh;
     height: auto;
