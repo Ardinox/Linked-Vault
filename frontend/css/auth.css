@@ -1,14 +1,12 @@
 /* frontend/css/auth.css */
 
-/* Re-use main background */
 body {
-    background: linear-gradient(135deg, #2c3e50, #4ca1af);
+    background: linear-gradient(135deg, #86adae, #43ac7f, #45808b);
     min-height: 100vh;
     font-family: 'Segoe UI', sans-serif;
     color: white;
 }
 
-/* Admin Dashboard Grid */
 .admin-container {
     max-width: 1200px;
     margin: 0 auto;
@@ -24,7 +22,7 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 2rem;
-    border: 1px solid rgba(255,255,255,0.2);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .user-profile {
@@ -39,9 +37,47 @@ body {
     background: white;
     border-radius: 50%;
     padding: 5px;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
 }
 
-/* Table Cards */
+.nav-pills {
+    gap: 10px;
+}
+
+.nav-pills .nav-link {
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.nav-pills .nav-link.active {
+    background-color: #f1c40f;
+    color: #2c3e50;
+    font-weight: bold;
+    border: none;
+}
+
+.view-section {
+    display: none;
+}
+
+.view-section.active {
+    display: block;
+    animation: fadeIn 0.3s;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 .table-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -65,7 +101,7 @@ body {
 
 .table-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
 }
 
 .table-card h3 {
@@ -79,7 +115,7 @@ body {
     margin-top: 5px;
 }
 
-/* "Add New" Card Special Styling */
+
 .add-card {
     background: rgba(255, 255, 255, 0.1);
     border: 2px dashed rgba(255, 255, 255, 0.5);
@@ -95,4 +131,48 @@ body {
     font-size: 3rem;
     line-height: 1;
     margin-bottom: 0.5rem;
+}
+
+@media (max-width: 768px) {
+    .admin-container {
+        padding: 1rem;
+    }
+
+    .admin-header {
+        flex-direction: column;
+        gap: 1.5rem;
+        padding: 1.5rem;
+        text-align: center;
+    }
+
+    .user-profile {
+        width: 100%;
+        justify-content: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .admin-header .nav-pills {
+        width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .admin-header .nav-item {
+        flex-grow: 1;
+    }
+
+    .admin-header .nav-pills .nav-link {
+        width: 100%;
+        margin-right: 0 !important;
+        padding: 10px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    #logoutBtn {
+        width: 100%;
+        margin-top: 0.5rem;
+        padding: 10px;
+    }
 }

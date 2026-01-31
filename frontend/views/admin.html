@@ -1,9 +1,10 @@
+<!-- frontend/views/admin.html -->
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LinkedVault - Admin Dashboard</title>
+    <title>EMS - Admin Dashboard</title>
     <link rel="icon" type="image/x-icon" href="../Assets/logo2.png" />
 
     <link
@@ -18,45 +19,6 @@
     />
 
     <link rel="stylesheet" href="../css/auth.css" />
-    <style>
-      .user-avatar {
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-      }
-      /* Toggle Button Styling */
-      .nav-pills .nav-link {
-        color: white;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        margin-right: 10px;
-      }
-      .nav-pills .nav-link.active {
-        background-color: #f1c40f;
-        color: #2c3e50;
-        font-weight: bold;
-        border: none;
-      }
-
-      /* Hide sections by default */
-      .view-section {
-        display: none;
-      }
-      .view-section.active {
-        display: block;
-        animation: fadeIn 0.3s;
-      }
-
-      @keyframes fadeIn {
-        from {
-          opacity: 0;
-          transform: translateY(10px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-    </style>
   </head>
   <body class="bg-pattern">
     <div class="admin-container">
@@ -106,16 +68,18 @@
 
         <div class="card shadow-sm border-0">
           <div class="card-body p-0 rounded overflow-hidden">
-            <table class="table table-hover mb-0">
-              <thead class="table-dark">
-                <tr>
-                  <th>Time</th>
-                  <th>User</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody id="logBody"></tbody>
-            </table>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                <thead class="table-dark">
+                    <tr>
+                    <th>Time</th>
+                    <th>Actions</th>
+                    <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody id="logBody"></tbody>
+                </table>
+            </div>
           </div>
         </div>
       </div>
