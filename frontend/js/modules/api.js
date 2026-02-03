@@ -32,11 +32,10 @@ export const Api = {
     return res.ok ? await res.json() : [];
   },
 
-  // --- Search Employee ID ---
-  async search(id, tableId) {
-    const res = await http(`${BASE}/search?id=${id}&table_id=${tableId}`);
-    if (res.status === 404) return null;
-    return res.ok ? await res.json() : null;
+  // --- Search Employee ---
+  async search(queryText, tableId) {
+    const res = await http(`${BASE}/search?query=${encodeURIComponent(queryText)}&table_id=${tableId}`);
+    return res.ok ? await res.json() : [];
   },
 
   // --- Insert Employee Details ---

@@ -299,11 +299,11 @@ window.loadStandardTable = async function () {
 };
 
 window.searchData = async function () {
-  const id = document.getElementById("searchId").value.trim();
-  if (!id) return alert("Enter ID");
+  const query = document.getElementById("searchId").value.trim();
+  if (!query) return alert("Please enter a Name, ID or Department");
   try {
-    const data = await Api.search(id, TABLE_ID);
-    renderTable(data ? [data] : []);
+    const data = await Api.search(query, TABLE_ID);
+    renderTable(data);
   } catch (error) {
     console.error(error);
   }
