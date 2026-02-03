@@ -11,7 +11,7 @@ RUN rm -rf ./*
 # This copies css/, js/, views/, index.html, etc. exactly as they are structure-wise
 COPY . .
 
-# 3. Overwrite the default Nginx config with our custom proxy config
+# 3. Overwrite the default Nginx config with custom proxy config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Expose port 80 (Internal Container Port)
