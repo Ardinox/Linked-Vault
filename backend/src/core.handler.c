@@ -138,7 +138,7 @@ void handle_showall(struct mg_connection *c, struct mg_http_message *hm)
 }
 
 // --- Handles Search by ID (Linear Search: as the data is not sorted according to ID) ---
-void handle_search_by_id(struct mg_connection *c, struct mg_http_message *hm)
+void handle_search(struct mg_connection *c, struct mg_http_message *hm)
 {
   char query_str[50], table_id_str[32], owner_id_str[32];
 

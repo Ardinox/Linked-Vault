@@ -82,6 +82,7 @@ void handle_registry(struct mg_connection *c, struct mg_http_message *hm)
   cJSON_Delete(json);
 }
 
+//  3. READS THE LOG FILES FOR INDIVIDUAL USERS
 void handle_history(struct mg_connection *c, struct mg_http_message *hm)
 {
   char owner_id_str[32];

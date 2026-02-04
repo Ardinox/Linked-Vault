@@ -68,7 +68,7 @@ static void fn(struct mg_connection *c, int ev, void *ev_data)
     }
     else if (mg_match(hm->uri, mg_str("/search"), NULL) && is_method(hm, "GET"))
     {
-      handle_search_by_id(c, hm);
+      handle_search(c, hm);
     }
     else if (mg_match(hm->uri, mg_str("/delete"), NULL) && is_method(hm, "DELETE"))
     {
@@ -123,7 +123,7 @@ int main(void)
     mg_mgr_poll(&mgr, POLL_INTERVAL_MS);
   }
 
-  // Cleanup (Good Practice)
+  // Cleanup
   mg_mgr_free(&mgr);
   return 0;
 }

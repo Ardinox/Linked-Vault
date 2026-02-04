@@ -1,4 +1,4 @@
-// File_Name table.handler.c
+// File_Name file.handler.c
 // Serves the File export/import logic for table datas
 
 #include "handlers.h"
