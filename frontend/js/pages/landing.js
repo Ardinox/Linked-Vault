@@ -9,7 +9,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (token) {
                 // User is already logged in -> Go to Admin Dashboard
-                // Path is relative to index.html (root)
                 window.location.href = "views/admin.html";
             } else {
                 // User is guest -> Go to Login

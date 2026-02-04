@@ -1,3 +1,5 @@
+// frontend/js/modules/auth.js
+
 export const Auth = {
     getToken: () => localStorage.getItem('authToken'),
     

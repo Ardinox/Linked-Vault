@@ -1,3 +1,5 @@
+// frontend/js/pages/signup.js
+
 import { CONFIG } from '../modules/config.js';
 
 document.getElementById('signupForm').addEventListener('submit', async (e) => {

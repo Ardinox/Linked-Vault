@@ -1,11 +1,15 @@
+// frontend/js/modules/api.js
+
 import { http } from "./http.js";
 import { CONFIG } from "./config.js";
 
-// Make sure this matches your Gateway URL
+// Gateway URL
 const BASE = CONFIG.API_URL; 
 
 export const Api = {
   // --- TABLE MANAGEMENT ---
+
+  // --- LIST TABLES ---
   async getTables() {
     const res = await http(`${BASE}/list_tables`, {
         method: "POST" 
@@ -13,6 +17,7 @@ export const Api = {
     return res.ok ? await res.json() : [];
   },
 
+  // --- CREATE A NEW TABLE ---
   async createTable(name) {
     return await http(`${BASE}/my_tables`, {
       method: "POST",
@@ -20,6 +25,7 @@ export const Api = {
     });
   },
 
+  // --- DELETES A TABLE ---
   async clearTable(tableId) {
     return await http(`${BASE}/delete_table?table_id=${tableId}`, {
       method: "DELETE",
@@ -62,18 +68,21 @@ export const Api = {
   },
 
   // --- TOOLS ---
+
+  // --- FOR LINKEDLIST REVERSE FUNCTION ---
   async reverse(tableId) {
     return await http(`${BASE}/linkedreverse?table_id=${tableId}`, {
       method: "PUT",
     });
   },
 
+  // --- FOR RECCURSIVE REVERSE FUNCTION ---
   async recursiveReverse(tableId) {
     const res = await http(`${BASE}/recursivereverse?table_id=${tableId}`);
     return res.ok ? await res.json() : [];
   },
 
-  // --- FILES ---
+  // --- FILES IMPORT/EXPORT ---
   getDownloadUrl(tableId) {
     const token = localStorage.getItem('authToken');
     // we handle the token manually in the UI for downloads if needed.

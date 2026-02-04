@@ -1,3 +1,5 @@
+// frontend/js/pages/.js
+
 import { Auth } from "../modules/auth.js";
 import { Api } from "../modules/api.js";
 
@@ -226,12 +228,18 @@ async function addData() {
 // --- UPDATE DATA ---
 async function loadEmployeeForUpdate(id) {
   try {
-    const data = await Api.search(id, TABLE_ID);
-    if (!data) {
+    // 1. Fetch data (Now returns an Array: [ { ... } ])
+    const results = await Api.search(id, TABLE_ID);
+
+    // 2. Check if the array is empty
+    if (!results || results.length === 0) {
       alert("Employee not found");
       window.location.href = `table_view.html?table_id=${TABLE_ID}&name=${encodeURIComponent(TABLE_NAME || "")}`;
       return;
     }
+
+    // 3. Extract the first item (The actual employee object)
+    const data = results[0];
     // Auto-fill form
     document.getElementById("originalId").value = data.id;
     document.getElementById("id").value = data.id;
@@ -407,7 +415,7 @@ window.send_file_to_backend = async function () {
 window.deleteData = async function () {
   if (
     !confirm(
-      "⚠️ WARNING: This will PERMANENTLY delete this table and all its contents.\n\nYou will be redirected to the Admin Dashboard.",
+      "⚠️ WARNING: This will PERMANENTLY delete this table and all its contents.",
     )
   )
     return;

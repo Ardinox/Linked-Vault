@@ -1,8 +1,11 @@
+// frontend/js/pages/admin.js
+
 import { Auth } from "../modules/auth.js";
 import { Api } from "../modules/api.js";
-import { CONFIG } from "../modules/config.js";
 
-// --- Helper ---
+// --- Helper FOR LOG PAGE ---
+
+// LABELS FOR THE LOGS
 const ACTION_LABELS = {
   "LOGIN": "Logged In",
   "CREATE": "Created Table", 
@@ -14,6 +17,8 @@ const ACTION_LABELS = {
   "CLEAR": "Cleared Table",    
   "REVERSE": "Reversed List"  
 };
+
+// LABEL COLOR FOR LOGS
 const ACTION_COLORS = {
   "LOGIN": "text-info",
   "CREATE": "text-success",

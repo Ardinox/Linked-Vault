@@ -1,4 +1,5 @@
 /* frontend/css/main.css */
+
 body {
     background: linear-gradient(135deg, #cad2d5, #abc1c1, #86adae, #43ac7f, #45808b);
     color: white;
@@ -43,7 +44,6 @@ h1 {
     opacity: 0.8;
 }
 
-/* Common Button Style */
 .btn-enter {
     background-color: #f1c40f;
     color: #2c3e50;
@@ -64,7 +64,6 @@ h1 {
     color: #2c3e50;
 }
 
-/* Glass Inputs (Used in Landing & Login) */
 .form-content {
     width: 100%; 
     max-width: 350px;

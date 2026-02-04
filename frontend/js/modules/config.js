@@ -6,7 +6,7 @@ const getApiUrl = () => {
         return "http://localhost:4000";
     }
 
-    // 2. CLOUDFLARE / DOCKER MODE
+    // 2. CLOUDFLARE / DOCKER (PRODUCTION MODE)
     return "/api";
 };
 
