@@ -1,3 +1,5 @@
+// frontend/js/pages/.js
+
 import { Auth } from "../modules/auth.js";
 import { Api } from "../modules/api.js";
 
@@ -142,6 +144,20 @@ function clearAddForm() {
   if (pos) pos.value = -1;
 }
 
+function showStatus(message, type = 'danger') {
+    const statusEl = document.getElementById('status');
+    if (!statusEl) return alert(message); // Fallback if element missing
+
+    statusEl.className = `alert alert-${type} mt-2 fw-bold text-center`;
+    statusEl.innerText = message;
+    statusEl.classList.remove('d-none');
+
+    // Auto-hide after 4 seconds
+    setTimeout(() => {
+        statusEl.classList.add('d-none');
+    }, 4000);
+}
+
 // --- NAVBAR LOADER ---
 async function loadNavbar() {
   try {
@@ -208,15 +224,15 @@ async function addData() {
     const response = await Api.insert(payload);
     // http.js handles 401 checks automatically
     if (response.ok) {
-      alert(`Success! Employee ${name} added.`);
+      showStatus(`Success! Employee ${name} added.`, "success");
       clearAddForm();
     } else {
       const err = await response.json();
-      alert("Error: " + (err.message || "Insert Failed"));
+      showStatus(err.message || "Insert Failed");
     }
   } catch (error) {
     console.error(error);
-    alert("Network Error");
+    showStatus("Network Error");
   } finally {
     btn.innerText = "Add";
     btn.disabled = false;
@@ -226,12 +242,18 @@ async function addData() {
 // --- UPDATE DATA ---
 async function loadEmployeeForUpdate(id) {
   try {
-    const data = await Api.search(id, TABLE_ID);
-    if (!data) {
+    // 1. Fetch data (Now returns an Array: [ { ... } ])
+    const results = await Api.search(id, TABLE_ID);
+
+    // 2. Check if the array is empty
+    if (!results || results.length === 0) {
       alert("Employee not found");
       window.location.href = `table_view.html?table_id=${TABLE_ID}&name=${encodeURIComponent(TABLE_NAME || "")}`;
       return;
     }
+
+    // 3. Extract the first item (The actual employee object)
+    const data = results[0];
     // Auto-fill form
     document.getElementById("originalId").value = data.id;
     document.getElementById("id").value = data.id;
@@ -274,13 +296,13 @@ async function performUpdate() {
       );
     } else {
       const err = await response.json();
-      alert("Update Failed: " + (err.message || "Unknown error"));
+      showStatus(err.message || "Update Failed");
       btn.innerText = "Update";
       btn.disabled = false;
     }
   } catch (error) {
     console.error(error);
-    alert("Network Error");
+    showStatus("Network Error");
     btn.innerText = "Update";
     btn.disabled = false;
   }
@@ -299,11 +321,11 @@ window.loadStandardTable = async function () {
 };
 
 window.searchData = async function () {
-  const id = document.getElementById("searchId").value.trim();
-  if (!id) return alert("Enter ID");
+  const query = document.getElementById("searchId").value.trim();
+  if (!query) return alert("Please enter a Name, ID or Department");
   try {
-    const data = await Api.search(id, TABLE_ID);
-    renderTable(data ? [data] : []);
+    const data = await Api.search(query, TABLE_ID);
+    renderTable(data);
   } catch (error) {
     console.error(error);
   }
@@ -407,7 +429,7 @@ window.send_file_to_backend = async function () {
 window.deleteData = async function () {
   if (
     !confirm(
-      "⚠️ WARNING: This will PERMANENTLY delete this table and all its contents.\n\nYou will be redirected to the Admin Dashboard.",
+      "⚠️ WARNING: This will PERMANENTLY delete this table and all its contents.",
     )
   )
     return;

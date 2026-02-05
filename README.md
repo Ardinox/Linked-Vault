@@ -1,11 +1,13 @@
-![Backend](https://img.shields.io/badge/Backend-C-00599C?style=for-the-badge&logo=c&logoColor=white)
-![Middleware](https://img.shields.io/badge/Middleware-Node.js-339933?style=for-the-badge&logo=node.js&logoColor=white)
+# EMS
+
 ![Frontend](https://img.shields.io/badge/Frontend-HTML5_%2F_JS-E34F26?style=for-the-badge&logo=html5&logoColor=white)
+![Middleware](https://img.shields.io/badge/Middleware-Node.js-339933?style=for-the-badge&logo=node.js&logoColor=white)
+![Backend](https://img.shields.io/badge/Backend-C-00599C?style=for-the-badge&logo=c&logoColor=white)
+
 ![Architecture](https://img.shields.io/badge/Architecture-3--Tier-success?style=for-the-badge&logo=serverless&logoColor=white)
+![Architecture](https://img.shields.io/badge/Architecture-REST--API-red?style=for-the-badge&logo=serverless&logoColor=white)
 
-# LinkedVault
-
-**LinkedVault** is a secure, high-performance Employee Management System that bridges low-level C systems programming with modern web architecture. It features a custom **Linked List-based in-memory database**, binary file persistence, and a secure Node.js API gateway, all fully containerized with Docker.
+**EMS** is a secure, high-performance Employee Management System that bridges low-level C systems programming with modern web architecture. It features a custom **Linked List-based in-memory database**, binary file persistence, and a secure Node.js API gateway, all fully containerized with Docker.
 
 ## 🏗 Architecture
 
@@ -44,30 +46,44 @@ The system follows a strictly layered **Client-Gateway-Server** pattern designed
 ## 📂 Project Structure
 
 ```text
-LinkedVault/
-├── backend/            # The C Engine
-│   ├── bin/            # Database storage (mapped to host)
-│   ├── include/        # Header files (.h)
-│   ├── src/            # Source code (.c)
-│   ├── vendor/         # External libs (mongoose, cJSON)
-│   └── Dockerfile      # Multi-stage build (GCC -> Debian Slim)
-│
-├── gateway/            # The Node.js Security Layer
-│   ├── server.js       # Auth logic & Proxy
-│   ├── package.json    # Project dependencies
-│   ├── .env            # Environment variables
-│   └── Dockerfile      # Node Alpine image
-│
-├── frontend/           # The User Interface
-│   ├── Assets/         # Static images and icons
-│   ├── views/          # HTML partials and views
-│   ├── js/             # Main JavaScript logic
-│   │   ├── modules/    # Reusable API & Auth scripts
-│   │   └── pages/      # Dashboard & Page controllers
-│   ├── index.html      # Main entry point
-│   └── Dockerfile      # Nginx image
-│
-└── docker-compose.yml  # Container Orchestration
+└── EMS/
+    ├── backend/                  # The C Engine
+    │   ├── bin/                  # Database storage
+    │   │   ├── logs/
+    │   │   ├── tables/
+    │   │   └── users/
+    │   ├── include/              # Header files (.h)
+    │   ├── src/                  # Source code (.c)
+    │   ├── vendor/               # External libs (mongoose, cJSON)
+    │   ├── .dockerignore
+    │   ├── Dockerfile            # Multi-stage build (GCC -> Debian Slim)
+    │   └── Makefile
+    │
+    └── frontend/                 # The User Interface
+    │   ├── Assets/               # Static images and icons
+    │   ├── components/
+    │   ├── css/
+    │   ├── js/                   # Main JavaScript logic
+    │   │   ├── modules/          # Reusable API & Auth scripts
+    │   │   └── pages/            # Dashboard & Page controllers
+    │   ├── views/                # HTML partials and views
+    │   ├── Dockerfile            # Nginx image
+    │   ├── index.html            # Main entry point
+    │   └── nginx.conf
+    │
+    ├── gateway/                  # The Node.js Security Layer
+    │   ├── .dockerignore
+    │   ├── .env                  # Environment variables
+    │   ├── Dockerfile            # Node Alpine image
+    │   ├── package-lock.json
+    │   ├── package.json          # Project dependencies
+    │   ├── server.js             # Auth logic & Proxy
+    │
+    ├── .dockerignore
+    ├── .gitignore
+    ├── docker-compose.yml
+    ├── README.md
+    └── sample.csv
 ```
 
 ## 🛠️ Prerequisites
@@ -99,28 +115,6 @@ Once the logs say "Server running...", open your browser:
 **Manage Data:** Click "View" on your table to Add, Delete, or Search for employees.
 
 **Audit Logs:** Check the "History" tab to see your actions recorded in real-time.
-
----
-
-## 🔌 API Endpoints
-
-| Method | Endpoint             | Description                                     |
-| :----- | :------------------- | :---------------------------------------------- |
-| POST   | `/auth/register`     | Create a new user account                       |
-| POST   | `/auth/login`        | Login and receive JWT token                     |
-| POST   | `/my_tables`         | Create a new table                              |
-| POST   | `/list_tables`       | Get list of tables owned by user                |
-| DELETE | `/delete_table`      | Permanently delete a table                      |
-| POST   | `/insert`            | Add a new employee record                       |
-| GET    | `/show`              | Get all employees (JSON)                        |
-| GET    | `/search`            | Find employee by ID                             |
-| PUT    | `/update`            | Update an existing employee                     |
-| DELETE | `/delete`            | Remove an employee                              |
-| PUT    | `/linkedreverse`     | Reverse the backend linked list                 |
-| GET    | `/recursivereverse`  | Get reversed view (JSON) **(Recursive)**        |
-| POST   | `/upload_csv`        | Import data from CSV string                     |
-| GET    | `/download_table`    | Download data as CSV file                       |
-| GET    | `/api/history`       | View audit logs of user actions                 |
 
 ---
 

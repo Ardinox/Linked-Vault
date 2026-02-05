@@ -9,15 +9,20 @@
 #include "cJSON.h"
 
 // --- DECLARATION OF AUTH FUNCTION ---
+// --- To get the current User data ---
 void handle_get_user(struct mg_connection *c, struct mg_http_message *hm);
 
+// --- 2. For User Registry ---
 void handle_registry(struct mg_connection *c, struct mg_http_message *hm);
 
+// --- 3. For Logs ---
 void handle_history(struct mg_connection *c, struct mg_http_message *hm);
 
 // --- DECLARATION OF TABLE FUNCTION ---
+// --- 1. Table Listing ---
 void handle_create_table(struct mg_connection *c, struct mg_http_message *hm);
 
+// --- 2. Table Listing ---
 void handle_list_table(struct mg_connection *c, struct mg_http_message *hm);
 
 // --- DECLARATION FOR CORE SERVER FUNCTIONS ---
@@ -28,7 +33,7 @@ void handle_insertion(struct mg_connection *c, struct mg_http_message *hm);
 void handle_showall(struct mg_connection *c, struct mg_http_message *hm);
 
 // --- 3. Searching ---
-void handle_search_by_id(struct mg_connection *c, struct mg_http_message *hm);
+void handle_search(struct mg_connection *c, struct mg_http_message *hm);
 
 // --- 4. Deletion ---
 void handle_delete(struct mg_connection *c, struct mg_http_message *hm);

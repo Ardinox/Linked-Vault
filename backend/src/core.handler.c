@@ -45,7 +45,7 @@ void handle_insertion(struct mg_connection *c, struct mg_http_message *hm)
   if (error_msg != NULL)
   {
     pthread_mutex_unlock(&t->lock);
-    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\n", "{ \"error\": \"%s\" }", error_msg);
+    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\n", "{ \"message\": \"%s\" }", error_msg);
     cJSON_Delete(json);
     return;
   }
@@ -138,12 +138,23 @@ void handle_showall(struct mg_connection *c, struct mg_http_message *hm)
 }
 
 // --- Handles Search by ID (Linear Search: as the data is not sorted according to ID) ---
-void handle_search_by_id(struct mg_connection *c, struct mg_http_message *hm)
+void handle_search(struct mg_connection *c, struct mg_http_message *hm)
 {
-  char id_str[32], table_id_str[32], owner_id_str[32];
+  char query_str[50], table_id_str[32], owner_id_str[32];
 
-  if (mg_http_get_var(&hm->query, "id", id_str, sizeof(id_str)) <= 0 ||
-      mg_http_get_var(&hm->query, "table_id", table_id_str, sizeof(table_id_str)) <= 0 ||
+  if (mg_http_get_var(&hm->query, "query", query_str, sizeof(query_str)) <= 0)
+  {
+    if (mg_http_get_var(&hm->query, "id", query_str, sizeof(query_str)) <= 0)
+    {
+      // If neither exists, assume empty search (match everything? or error?)
+      // Let's error for safety.
+      mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
+                    "{ \"error\": \"Missing 'query' parameter\" }");
+      return;
+    }
+  }
+
+  if (mg_http_get_var(&hm->query, "table_id", table_id_str, sizeof(table_id_str)) <= 0 ||
       mg_http_get_var(&hm->query, "owner_id", owner_id_str, sizeof(owner_id_str)) <= 0)
   {
     mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "{ \"error\": \"Missing params\" }");
@@ -161,45 +172,79 @@ void handle_search_by_id(struct mg_connection *c, struct mg_http_message *hm)
   // lock the list
   pthread_mutex_lock(&t->lock);
 
-  int target_id = atoi(id_str);
+  // Prepare JSON Array
+  cJSON *results_array = cJSON_CreateArray();
 
-  // Linear Search for the ID
   emp *curr = t->employeelist.head;
-  while (curr != NULL && curr->id != target_id)
+  int match_count = 0;
+
+  // Buffer for converting numbers (ID/Age/Salary) to strings
+  char temp_buf[64];
+
+  // Linear Search through the WHOLE list
+  while (curr != NULL)
   {
+    int is_match = 0;
+
+    // CHECK 1: Name (String)
+    if (str_contains_ci(curr->name, query_str))
+      is_match = 1;
+
+    // CHECK 2: Department (String)
+    else if (str_contains_ci(curr->department, query_str))
+      is_match = 1;
+
+    // CHECK 3: ID (Int -> String)
+    if (!is_match)
+    {
+      snprintf(temp_buf, sizeof(temp_buf), "%d", curr->id);
+      if (strstr(temp_buf, query_str))
+        is_match = 1;
+    }
+
+    // CHECK 4: Age (Int -> String)
+    if (!is_match)
+    {
+      snprintf(temp_buf, sizeof(temp_buf), "%d", curr->age);
+      if (strstr(temp_buf, query_str))
+        is_match = 1;
+    }
+
+    // CHECK 5: Salary (Int -> String)
+    if (!is_match)
+    {
+      snprintf(temp_buf, sizeof(temp_buf), "%d", curr->salary);
+      if (strstr(temp_buf, query_str))
+        is_match = 1;
+    }
+
+    // 5. If Match Found -> Add to Array
+    if (is_match)
+    {
+      cJSON *emp_obj = cJSON_CreateObject();
+      cJSON_AddNumberToObject(emp_obj, "id", curr->id);
+      cJSON_AddStringToObject(emp_obj, "name", curr->name);
+      cJSON_AddNumberToObject(emp_obj, "age", curr->age);
+      cJSON_AddStringToObject(emp_obj, "department", curr->department);
+      cJSON_AddNumberToObject(emp_obj, "salary", curr->salary);
+
+      cJSON_AddItemToArray(results_array, emp_obj);
+      match_count++;
+    }
+
     curr = curr->next;
   }
-
-  // If curr is NULL, we reached the end without finding the ID
-  if (curr == NULL)
-  {
-    // unlock the list
-    pthread_mutex_unlock(&t->lock);
-
-    mg_http_reply(c, 404, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
-                  "{\"message\": \"Id Not Found\"}");
-    return;
-  }
-
-  // Found it: Build Response
-  cJSON *emp_obj = cJSON_CreateObject();
-  cJSON_AddNumberToObject(emp_obj, "id", curr->id);
-  cJSON_AddStringToObject(emp_obj, "name", curr->name);
-  cJSON_AddNumberToObject(emp_obj, "age", curr->age);
-  cJSON_AddStringToObject(emp_obj, "department", curr->department);
-  cJSON_AddNumberToObject(emp_obj, "salary", curr->salary);
-
-  char *response_str = cJSON_PrintUnformatted(emp_obj);
 
   // unlock the list
   pthread_mutex_unlock(&t->lock);
 
   // Response
+  char *response_str = cJSON_PrintUnformatted(results_array);
   mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n", "%s", response_str);
 
   // Cleanup
   free(response_str);
-  cJSON_Delete(emp_obj);
+  cJSON_Delete(results_array);
 }
 
 // --- Handles Deletion (Removes a node by ID and frees its memory) ---
@@ -449,7 +494,7 @@ void handle_update(struct mg_connection *c, struct mg_http_message *hm)
     mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\n", "{ \"status\": \"Error\", \"message\": \"Invalid Department\" }");
     return;
   }
-  if (new_node->age < 16 || new_node->salary < 0)
+  if (new_node->age < 18 || new_node->salary < 0)
   {
     pthread_mutex_unlock(&t->lock);
     free(new_node);
@@ -519,11 +564,10 @@ void handle_update(struct mg_connection *c, struct mg_http_message *hm)
   char log_details[128];
   snprintf(log_details, sizeof(log_details), "Updated Employee ID: %d", new_node->id);
   add_log(j_owner_id->valueint, "UPDATE", log_details);
-  
+
   pthread_mutex_unlock(&t->lock);
 
   mg_http_reply(c, 200, "Access-Control-Allow-Origin: *\r\nContent-Type: application/json\r\n",
                 "{ \"status\": \"success\", \"message\": \"Employee Updated\" }");
   cJSON_Delete(json);
 }
-

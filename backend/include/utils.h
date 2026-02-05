@@ -23,6 +23,10 @@ int is_method(struct mg_http_message *hm, const char *method);
 // Validates raw data before creating a node
 const char *validate_core_logic(Table *t, int id, char *name, int age, char *dept, int salary);
 
+// --- HELPER: Case-Insensitive String Contains ---
+// Returns 1 if 'needle' is found inside 'haystack' (ignoring case), 0 otherwise
+int str_contains_ci(const char *haystack, const char *needle);
+
 // --- HELPER: JSON Validations ---
 // Validates incoming JSON for employee creation
 const char* validate_employee_json(cJSON *j_data, Table *t);

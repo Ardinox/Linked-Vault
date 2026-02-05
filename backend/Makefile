@@ -4,7 +4,7 @@ CFLAGS = -Wall -Iinclude -Ivendor -D_CRT_RAND_S -Dfseeko=fseek
 
 LDFLAGS = -lws2_32 -lpthread
 
-TARGET = LinkedVault.exe
+TARGET = ems.exe
 
 SRC = $(wildcard src/*.c) $(wildcard vendor/*.c)
 

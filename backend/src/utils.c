@@ -71,7 +71,7 @@ const char *validate_core_logic(Table *t, int id, char *name, int age, char *dep
     }
 
     // Check for valid age
-    if (age < 16 || age > 100)
+    if (age < 18 || age > 100)
     {
         return "Enter a valid Age!";
     }
@@ -129,6 +129,25 @@ const char *validate_employee_json(cJSON *j_data, Table *t)
 
     // return 'NULL' if no error found
     return NULL;
+}
+
+// --- HELPER: Case-Insensitive String Contains ---
+int str_contains_ci(const char *haystack, const char *needle){
+    if(!haystack || !needle){
+        return 0;
+    }
+    // We create copies to avoid modifying the original data
+    char h_copy[100], n_copy[100];
+
+    // Copy and convert to Lowercase
+    strncpy(h_copy, haystack, 99); h_copy[99] = '\0';
+    strncpy(n_copy, needle, 99);   n_copy[99] = '\0';
+
+    for(int i = 0; h_copy[i]; i++) h_copy[i] = tolower((unsigned char)h_copy[i]);
+    for(int i = 0; n_copy[i]; i++) n_copy[i] = tolower((unsigned char)n_copy[i]);
+
+    // Use standard strstr on the lowercase versions
+    return (strstr(h_copy, n_copy) != NULL);
 }
 
 // --- HELPER: Recurrsive Json creator ---
