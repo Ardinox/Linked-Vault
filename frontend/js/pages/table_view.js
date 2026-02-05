@@ -144,6 +144,20 @@ function clearAddForm() {
   if (pos) pos.value = -1;
 }
 
+function showStatus(message, type = 'danger') {
+    const statusEl = document.getElementById('status');
+    if (!statusEl) return alert(message); // Fallback if element missing
+
+    statusEl.className = `alert alert-${type} mt-2 fw-bold text-center`;
+    statusEl.innerText = message;
+    statusEl.classList.remove('d-none');
+
+    // Auto-hide after 4 seconds
+    setTimeout(() => {
+        statusEl.classList.add('d-none');
+    }, 4000);
+}
+
 // --- NAVBAR LOADER ---
 async function loadNavbar() {
   try {
@@ -210,15 +224,15 @@ async function addData() {
     const response = await Api.insert(payload);
     // http.js handles 401 checks automatically
     if (response.ok) {
-      alert(`Success! Employee ${name} added.`);
+      showStatus(`Success! Employee ${name} added.`, "success");
       clearAddForm();
     } else {
       const err = await response.json();
-      alert("Error: " + (err.message || "Insert Failed"));
+      showStatus(err.message || "Insert Failed");
     }
   } catch (error) {
     console.error(error);
-    alert("Network Error");
+    showStatus("Network Error");
   } finally {
     btn.innerText = "Add";
     btn.disabled = false;
@@ -282,13 +296,13 @@ async function performUpdate() {
       );
     } else {
       const err = await response.json();
-      alert("Update Failed: " + (err.message || "Unknown error"));
+      showStatus(err.message || "Update Failed");
       btn.innerText = "Update";
       btn.disabled = false;
     }
   } catch (error) {
     console.error(error);
-    alert("Network Error");
+    showStatus("Network Error");
     btn.innerText = "Update";
     btn.disabled = false;
   }

@@ -45,7 +45,7 @@ void handle_insertion(struct mg_connection *c, struct mg_http_message *hm)
   if (error_msg != NULL)
   {
     pthread_mutex_unlock(&t->lock);
-    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\n", "{ \"error\": \"%s\" }", error_msg);
+    mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\n", "{ \"message\": \"%s\" }", error_msg);
     cJSON_Delete(json);
     return;
   }
@@ -494,7 +494,7 @@ void handle_update(struct mg_connection *c, struct mg_http_message *hm)
     mg_http_reply(c, 400, "Access-Control-Allow-Origin: *\r\n", "{ \"status\": \"Error\", \"message\": \"Invalid Department\" }");
     return;
   }
-  if (new_node->age < 16 || new_node->salary < 0)
+  if (new_node->age < 18 || new_node->salary < 0)
   {
     pthread_mutex_unlock(&t->lock);
     free(new_node);

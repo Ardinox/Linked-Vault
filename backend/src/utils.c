@@ -71,7 +71,7 @@ const char *validate_core_logic(Table *t, int id, char *name, int age, char *dep
     }
 
     // Check for valid age
-    if (age < 16 || age > 100)
+    if (age < 18 || age > 100)
     {
         return "Enter a valid Age!";
     }
